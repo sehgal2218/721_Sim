@@ -86,6 +86,14 @@ void pipeline_t::rename2() {
       //    Another field indicates whether or not the instruction has a destination register.
 
       // FIX_ME #1 BEGIN
+      if(PAY.buf[index].checkpoint)
+      {
+         bundle_branch++;
+      }
+      if(PAY.buf[index].C_valid)
+      {
+         bundle_dst++;
+      }
       // FIX_ME #1 END
    }
 
@@ -100,6 +108,10 @@ void pipeline_t::rename2() {
    // This is achieved by doing nothing and proceeding to the next statements.
 
    // FIX_ME #2 BEGIN
+   if(REN->stall_reg(bundle_dst) || REN->stall_branch(bundle_branch))
+   {
+      return;
+   }
    // FIX_ME #2 END
 
    //
@@ -125,6 +137,23 @@ void pipeline_t::rename2() {
       //    so that the physical register specifier can be used in subsequent pipeline stages.
 
       // FIX_ME #3 BEGIN
+      if(PAY.buf[index].A_valid)
+      {
+         PAY.buf[index].A_phys_reg = REN->rename_rsrc(PAY.buf[index].A_log_reg);
+      }
+      if (PAY.buf[index].B_valid)
+      {
+         PAY.buf[index].B_phys_reg = REN->rename_rsrc(PAY.buf[index].B_log_reg);
+      }
+      if (PAY.buf[index].D_valid)
+      {
+         PAY.buf[index].D_phys_reg = REN->rename_rsrc(PAY.buf[index].D_log_reg);
+      }
+
+      if (PAY.buf[index].C_valid)
+      {
+         PAY.buf[index].C_phys_reg = REN->rename_rdst(PAY.buf[index].C_log_reg);
+      }
       // FIX_ME #3 END
 
       // FIX_ME #4
@@ -139,6 +168,7 @@ void pipeline_t::rename2() {
       //    RENAME2[i].branch_mask = ??;
 
       // FIX_ME #4 BEGIN
+      RENAME2[i].branch_mask = REN->get_branch_mask();
       // FIX_ME #4 END
 
       // FIX_ME #5
@@ -151,6 +181,10 @@ void pipeline_t::rename2() {
       //    so that the branch ID can be used in subsequent pipeline stages.
 
       // FIX_ME #5 BEGIN
+      if(PAY.buf[index].checkpoint)
+      {
+         PAY.buf[index].branch_ID = REN->checkpoint();
+      }
       // FIX_ME #5 END
    }
 
