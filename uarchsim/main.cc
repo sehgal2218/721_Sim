@@ -149,6 +149,42 @@ static void set_perfect_flags(const char *config) {
       PERFECT_TRACE_CACHE = (ptc ? true : false);
    }
 }
+static void set_vp_flags(const char *config) {
+  //unsigned int vpq_size, tag_bits, index_bits,conf_max;
+  
+  bool oracle_conf; 
+  
+  if (sscanf(config, "%u,%u,%u,%u,%u",&VPQ_SIZE,&oracle_conf,&SVP_INDEX_BITS,&SVP_TAG_BITS,&SVP_CONF_MAX) != 5){
+      fprintf(stderr, "Incorrect usage of --vp-svp:\n");
+      fprintf(stderr,"--vp-svp=<VPQsize>,<oracleconf>,<# index bits>,<# tag bits>,<confmax>\n");
+   }  
+
+  if (oracle_conf){
+  
+  ORACLE_CONF=true;
+  
+  }
+
+}
+
+static void set_vp_eligible_flags(const char *config) {
+  //unsigned int vpq_size, tag_bits, index_bits,conf_max;
+  
+  bool oracle_conf; 
+  
+  if (sscanf(config, "%u,%u,%u",&VP_ELIGIBLE_INTALU,&VP_ELIGIBLE_FPALU,&VP_ELIGIBLE_LOAD) != 3){
+      fprintf(stderr, "Incorrect usage of --vp-eligible:\n");
+      fprintf(stderr,"--vp-eligible=<PRED_INTALU>,<PRED_FPALU>,<PRED_LOAD>\n");
+   }  
+
+  if (oracle_conf){
+  
+  ORACLE_CONF=true;
+  
+  }
+
+}
+
 
 static void set_mdp_flags(const char *config) {
    uint64_t mdp_model, mdp_ctr_max;
@@ -447,6 +483,9 @@ int main(int argc, char **argv) {
    parser.option('b', 0, 0, [&](const char *s) { IDEAL_AGE_BASED = true; });
    parser.option(0, "lsq", 1, [&](const char *s) {LQ_SIZE = atoi(s);SQ_SIZE = atoi(s); });
    parser.option(0, "mdp", 1, [&](const char *s) { set_mdp_flags(s); });
+   parser.option(0, "vp-svp", 1, [&](const char *s) { set_vp_flags(s); });
+   parser.option(0, "vp-eligible", 1, [&](const char *s) { set_vp_eligible_flags(s); });
+   parser.option(0, "vp-perf", 1, [&](const char *s) { PERFECT_VALUE_PRED = atoi(s); });
    parser.option(0, "store-set", 1, [&](const char *s) { set_store_set_flags(s); });
    parser.option(0, "splitstores", 1, [&](const char *s) { SPLIT_STORES = (atoi(s) ? true : false); });
    parser.option(0, "fw", 1, [&](const char *s) { FETCH_WIDTH = atoi(s); });
@@ -463,6 +502,8 @@ int main(int argc, char **argv) {
       IDEAL_AGE_BASED = true;
       NUM_CHECKPOINTS = 64;
       FETCH_QUEUE_SIZE = 64; });
+
+
 
    auto argv1 = parser.parse(argv);
    if (!*argv1)

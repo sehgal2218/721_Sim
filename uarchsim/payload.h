@@ -199,6 +199,7 @@ typedef struct {
 
    unsigned int lane_id; // Execution lane chosen for the instruction.
 
+   uint64_t Predicted_value;  // Contains value predicted by SVP, if eligibil and confident
    ////////////////////////
    // Set by Issue Stage.
    ////////////////////////

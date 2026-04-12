@@ -240,7 +240,7 @@ pipeline_t::pipeline_t(
    ////////////////////////////////////////////////////////////
    // Set up the register renaming modules.
    ////////////////////////////////////////////////////////////
-   REN = new renamer(NXPR + NFPR, prf_size, num_chkpts, rob_size);
+   REN = new renamer(NXPR + NFPR, prf_size, num_chkpts, rob_size,PERFECT_VALUE_PRED,VPQ_SIZE,ORACLE_CONF,SVP_INDEX_BITS,SVP_TAG_BITS,SVP_CONF_MAX);
 
    /////////////////////////////////////////////////////////////
    // Pipeline register between the Rename and Dispatch Stages.
