@@ -26,7 +26,24 @@ typedef struct
 	bool amo_flag;
 	bool csr_flag;
 	uint64_t pc;
+	bool vpe_flag;   // VP eligibil
+	bool no_pred_flag;  // no orediction available
+	bool confident_flag;  // Confident about this prediciton
+	bool pred_correcrt_flag; // Prediction Correct flag
 }Active_List_struct;
+
+typedef struct {
+	uint64_t tag;
+	uint64_t conf;
+	uint64_t last_value;
+        uint64_t stride;
+        uint64_t instance;	
+} svp_struct;
+
+typedef struct {
+        uint64_t PC;
+	uint64_t value;
+}vpq_struct;
 
 typedef struct
 {
@@ -46,6 +63,20 @@ typedef struct
 
 class renamer {
 private:
+
+
+	/////////////////////////////////////
+	///   Value Prediction 
+	/////////////////////////////////////
+       svp_struct *svp;
+       vpq_struct *vpq;
+       bool vp_perfect;
+       int vp_oracle;
+       int svp_index;
+       int svp_tag;
+       int vp_conf;
+
+
 	/////////////////////////////////////////////////////////////////////
 	// Put private class variables here.
 	/////////////////////////////////////////////////////////////////////
@@ -207,7 +238,7 @@ public:
 	// Then, initialize the data structures based on the knowledge
 	// that the pipeline is intially empty (no in-flight instructions yet).
 	/////////////////////////////////////////////////////////////////////
-	renamer(uint64_t n_log_regs, uint64_t n_phys_regs, uint64_t n_branches, uint64_t n_active);
+	renamer(uint64_t n_log_regs, uint64_t n_phys_regs, uint64_t n_branches, uint64_t n_active,bool vp_perf,int vpq_size,bool vp_oracle_conf,int svp_index_bits,int svp_tag_bits,int vp_confmax);
 
 	/////////////////////////////////////////////////////////////////////
 	// This is the destructor, used to clean up memory space and

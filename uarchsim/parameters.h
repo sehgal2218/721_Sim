@@ -3,6 +3,17 @@
 #include <cinttypes>
 #include "ras_recover.h"
 
+// Value Prediction Control
+extern bool PERFECT_VALUE_PRED;
+extern unsigned int VPQ_SIZE;
+extern bool ORACLE_CONF;
+extern unsigned int SVP_INDEX_BITS;
+extern unsigned int SVP_TAG_BITS;
+extern unsigned int SVP_CONF_MAX;
+extern unsigned int VP_ELIGIBLE_INTALU;
+extern unsigned int VP_ELIGIBLE_FPALU;
+extern unsigned int VP_ELIGIBLE_LOAD;
+
 // Pipe control
 extern unsigned int PIPE_QUEUE_SIZE;
 

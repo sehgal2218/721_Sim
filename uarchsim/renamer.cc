@@ -1,14 +1,27 @@
 #include "renamer.h"
 #include <cassert>
-
+#include <cstdio>
 ////////////////////////////////// CONSTRUCTOR ////////////////////////////////
 
-renamer::renamer(uint64_t n_log_regs, uint64_t n_phys_regs, uint64_t n_branches, uint64_t n_active)
+renamer::renamer(uint64_t n_log_regs, uint64_t n_phys_regs, uint64_t n_branches, uint64_t n_active,bool vp_perf,int vpq_size,bool vp_oracle_conf,int svp_index_bits,int svp_tag_bits,int vp_confmax)
 {
     logical_reg_count = n_log_regs;
     physical_reg_count = n_phys_regs;
     unresolved_branch_count = n_branches;
     active_list_size = n_active;
+
+    //////////////////////////////////////////
+    // Value Prediction
+    /////////////////////////////////////////
+    svp = new svp_struct[1<<svp_index_bits];
+    vpq = new vpq_struct[vpq_size];
+    vp_perfect = vp_perf;
+    vp_oracle =vp_oracle_conf;
+    svp_index = svp_index_bits;
+    svp_tag = svp_tag_bits;
+    vp_conf = vp_confmax;
+    printf("\nValue Prediction Values:vp_perfect %d vp_oracle %d svp_index%d svp_tag %d vp_conf %d vp_size %d\n",vp_perfect,vp_oracle,svp_index,svp_tag,vp_conf,vpq_size);
+     
 
     ////////////// Struct init ///////////////
     rmt = new uint64_t[logical_reg_count];

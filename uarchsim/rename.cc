@@ -108,6 +108,7 @@ void pipeline_t::rename2() {
    // This is achieved by doing nothing and proceeding to the next statements.
 
    // FIX_ME #2 BEGIN
+   printf("\n  \n");
    if(REN->stall_reg(bundle_dst) || REN->stall_branch(bundle_branch))
    {
       return;

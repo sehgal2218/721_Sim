@@ -5,6 +5,16 @@
 // Pipe control
 uint32_t PIPE_QUEUE_SIZE = 8192;
 
+// Value Prediction Control
+bool PERFECT_VALUE_PRED=false;
+unsigned int VPQ_SIZE=64;
+bool ORACLE_CONF=false;
+unsigned int SVP_INDEX_BITS=7;
+unsigned int SVP_TAG_BITS=55;
+unsigned int SVP_CONF_MAX=3;
+unsigned int VP_ELIGIBLE_INTALU=1;
+unsigned int VP_ELIGIBLE_FPALU=1;
+unsigned int VP_ELIGIBLE_LOAD=1;
 
 // Oracle controls.
 bool PERFECT_BRANCH_PRED = false;
