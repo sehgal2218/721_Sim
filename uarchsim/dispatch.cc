@@ -149,7 +149,7 @@ void pipeline_t::dispatch() {
       branch_flag = IS_BRANCH(PAY.buf[index].flags);
       amo_flag = IS_AMO(PAY.buf[index].flags);
       csr_flag = IS_CSR(PAY.buf[index].flags);
-      PAY.buf[i].AL_index = REN->dispatch_inst(PAY.buf[i].C_valid ,PAY.buf[i].C_log_reg, PAY.buf[i].C_phys_reg, load_flag, store_flag, branch_flag, amo_flag, csr_flag, PAY.buf[i].pc);
+      PAY.buf[index].AL_index = REN->dispatch_inst(PAY.buf[index].C_valid ,PAY.buf[index].C_log_reg, PAY.buf[index].C_phys_reg, load_flag, store_flag, branch_flag, amo_flag, csr_flag, PAY.buf[index].pc);
       // FIX_ME #7 END
 
       // FIX_ME #8
