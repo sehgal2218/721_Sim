@@ -212,17 +212,20 @@ void pipeline_t::rename2() {
 	     PAY.buf[index].vpq_index = REN->vpq_update(PAY.buf[index].pc);
 	     if (REN->check_svp(PAY.buf[index].pc)){
 	        db_t *actual = get_pipe()->peek(PAY.buf[index].db_index);
-                uint64_t actual_value= actual->a_rdst[0].value;
-		uint64_t svp_index= REN->get_svp_index(PAY.buf[index].pc);
-	        uint64_t pred_value = REN->get_prediction_value(svp_index);
+                int64_t actual_value= actual->a_rdst[0].value;
+		uint64_t s_index= REN->get_svp_index(PAY.buf[index].pc);
+	        int64_t pred_value = REN->get_prediction_value(s_index);
                 if (actual_value == pred_value){
-		    PAY.buf[index].vp_conf=3;
+		    PAY.buf[index].vp_conf=REN->get_vp_conf();
                     PAY.buf[index].Predicted_value=pred_value;
 		}else{
 		PAY.buf[index].vp_conf=0;
+		PAY.buf[index].Predicted_value=0;
 		
 		}		
 	     }else{
+             PAY.buf[index].Predicted_value=0;
+
 	     PAY.buf[index].vp_conf=0;
 	     
 	     }

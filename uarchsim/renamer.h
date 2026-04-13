@@ -590,10 +590,10 @@ uint64_t get_svp_index(uint64_t pc);
 uint64_t vpq_update(uint64_t pc);
 bool is_vp_perfect();
 bool is_vp_oracle();
-uint64_t get_prediction_value(int index);
-void vp_active_list_update(int AL_index,int vp_eligible, int vp_conf);
+int64_t get_prediction_value(uint64_t index);
+void vp_active_list_update(uint64_t AL_index,int vp_eligible, int vp_conf);
 int get_vp_conf();
-void set_vpq_value(int index,uint64_t value);
+void set_vpq_value(uint64_t index,uint64_t value);
 };
 
 #endif // RENAMER_H
