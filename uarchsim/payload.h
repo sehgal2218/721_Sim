@@ -201,6 +201,8 @@ typedef struct {
 
    uint64_t Predicted_value;  // Contains value predicted by SVP, if eligibil and confident
    bool     vp_eligible; // tells whether the value is vp eligible or not
+   int vp_conf;
+   int vpq_index;
    ////////////////////////
    // Set by Issue Stage.
    ////////////////////////

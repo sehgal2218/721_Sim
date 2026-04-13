@@ -150,6 +150,9 @@ void pipeline_t::dispatch() {
       amo_flag = IS_AMO(PAY.buf[index].flags);
       csr_flag = IS_CSR(PAY.buf[index].flags);
       PAY.buf[index].AL_index = REN->dispatch_inst(PAY.buf[index].C_valid ,PAY.buf[index].C_log_reg, PAY.buf[index].C_phys_reg, load_flag, store_flag, branch_flag, amo_flag, csr_flag, PAY.buf[index].pc);
+
+      REN->vp_active_list_update(PAY.buf[index].AL_index,PAY.buf[index].vp_eligible,PAY.buf[index].vp_conf);
+      
       // FIX_ME #7 END
 
       // FIX_ME #8
@@ -212,7 +215,7 @@ void pipeline_t::dispatch() {
       // FIX_ME #9 BEGIN
       if(PAY.buf[index].C_valid)
       {
-	 if (PAY.buf[index].vp_eligible){
+	 if (PAY.buf[index].vp_conf == REN->get_vp_conf()){
 	    REN->set_ready(PAY.buf[index].C_phys_reg);
 	    REN->write(PAY.buf[index].C_phys_reg,PAY.buf[index].Predicted_value);
 

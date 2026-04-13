@@ -14,7 +14,12 @@ renamer::renamer(uint64_t n_log_regs, uint64_t n_phys_regs, uint64_t n_branches,
     // Value Prediction
     /////////////////////////////////////////
     svp = new svp_struct[1<<svp_index_bits];
-    vpq = new vpq_struct[vpq_size];
+    vpq.vpq_data = new vpq_data_struct[vpq_size];
+    this->vpq_size = vpq_size;
+    vpq.h=0;
+    vpq.t=0;
+    vpq.h_phase=0;
+    vpq.t_phase=1;
     vp_perfect = vp_perf;
     vp_oracle =vp_oracle_conf;
     svp_index = svp_index_bits;
@@ -370,6 +375,63 @@ void renamer::commit()
         
         amt[amt_index] = active_list.at[index].physical_dst_reg;
     }
+    
+    if (active_list.at[index].vp_eligible){
+       int vpq_index = vpq.h;
+       int svp_index = (active_list.at[index].pc >> 2) & ((1ULL << (svp_index)) - 1); 
+       int svp_tag = (active_list.at[index].pc >> svp_index) & ((1ULL << (svp_tag)) - 1); 
+
+       if (svp[svp_index].valid && svp[svp_index].tag == svp_tag){
+            int new_stride = vpq.vpq_data[vpq_index].value - svp[svp_index].last_value;
+	    if (new_stride == svp[svp_index].stride){
+	      svp[svp_index].conf++;
+	      if (svp[svp_index].conf>=3){
+	          svp[svp_index].conf=3;
+	      }
+	    
+	    }else{
+	       svp[svp_index].stride=new_stride;
+	       svp[svp_index].conf=0;
+	    }
+       
+       }else{
+	           int svp_instance=0;
+		   svp[svp_index].valid=1;
+		   svp[svp_index].conf=0;
+		   svp[svp_index].stride=vpq.vpq_data[vpq_index].value;
+		   svp[svp_index].last_value=vpq.vpq_data[vpq_index].value;
+		   svp[svp_index].tag = svp_tag;
+		   int temph = vpq.h;
+		   for (int i=0;i<vpq_size;i++){
+		        temph = temph+i;
+			if (temph==vpq_size){
+			    temph=0;
+			}
+			if (temph==vpq.t){
+			   break;
+			}
+
+			if (active_list.at[index].pc == vpq.vpq_data[temph].pc){
+			   svp_instance++;
+			
+			}
+		   
+		   }
+		   svp[svp_index].instance=svp_instance;
+
+             
+       }
+
+       vpq.h++;
+       if(vpq.h == vpq.t)
+    {
+        vpq.h = 0;
+        vpq.h_phase = !vpq.h_phase;
+    }
+
+    
+    }
+
 
     active_list.head++;
     if(active_list.head == active_list.size)
@@ -420,3 +482,98 @@ bool renamer::get_exception(uint64_t AL_index)
 {
     return active_list.at[AL_index].exp_flag;
 }
+
+bool renamer::stall_vpq(uint64_t bundle_vp_eligible){
+
+uint64_t vpq_count;
+    if(vpq.h_phase == vpq.t_phase)
+    {
+        vpq_count =vpq.t - vpq.h;
+    }
+    else
+    {
+        vpq_count = vpq_size - (vpq.h - vpq.t);
+    }
+    
+    if(vpq_count >= bundle_vp_eligible)
+    {
+        return false;
+    }
+    else
+    {
+        return true;
+    }
+
+
+}
+
+uint64_t renamer::vpq_update(uint64_t pc){
+
+uint64_t index = vpq.t;
+    vpq.vpq_data[index].pc = pc;
+    
+    vpq.t++;
+    if(vpq.t == vpq_size)
+    {
+        vpq.t = 0;
+        vpq.t_phase = !vpq.t_phase;
+    }
+    return index;
+
+}
+bool renamer::check_svp (uint64_t pc){
+
+      int index = (pc >> 2) & ((1ULL << (svp_index)) - 1);
+      int tag =  (pc >> svp_index) & ((1ULL << (svp_tag)) - 1);
+      if (svp[index].valid && svp[index].tag==tag){
+	     svp[svp_index].instance++; 
+          return 1;
+      
+      }else{
+      
+      return 0;
+      
+      }
+}
+
+int renamer::get_svp_index(uint64_t pc){
+      return (pc >> 2) & ((1ULL << (svp_index)) - 1);
+}
+
+bool renamer::is_vp_perfect(){
+    return vp_perfect;
+}
+
+bool renamer::is_vp_oracle(){
+    return vp_oracle;
+
+}
+
+int renamer::get_prediction_value(int index){
+
+
+return svp[index].last_value + svp[index].stride*svp[index].instance;
+
+}
+void renamer::vp_active_list_update(int AL_index,int vp_eligible, int vp_conf){
+
+        active_list.at[AL_index].vp_eligible = vp_eligible;
+	active_list.at[AL_index].vp_conf =  vp_conf;
+	
+}
+
+int renamer::get_vp_conf(){
+    
+	return vp_conf;
+
+}
+void renamer::set_vpq_value(int index,uint64_t value){
+
+	vpq.vpq_data[index].value=value;
+
+}
+
+
+
+
+

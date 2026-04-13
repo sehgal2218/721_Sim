@@ -51,6 +51,7 @@ void pipeline_t::rename2() {
    unsigned int i;
    unsigned int index;
    unsigned int bundle_dst, bundle_branch;
+   unsigned int bundle_vp_eligible;
 
    // Stall the rename2 sub-stage if either:
    // (1) There isn't a current rename bundle.
@@ -65,6 +66,7 @@ void pipeline_t::rename2() {
    // Third stall condition: There aren't enough rename resources for the current rename bundle.
    bundle_dst = 0;
    bundle_branch = 0;
+   bundle_vp_eligible = 0;
    for (i = 0; i < dispatch_width; i++) {
       if (!RENAME2[i].valid)
          break; // Not a valid instruction: Reached the end of the rename bundle so exit loop.
@@ -94,6 +96,10 @@ void pipeline_t::rename2() {
       {
          bundle_dst++;
       }
+      if (eligible(PAY.buf[index])){
+      
+	      bundle_vp_eligible++;
+      }
       // FIX_ME #1 END
    }
 
@@ -109,7 +115,7 @@ void pipeline_t::rename2() {
 
    // FIX_ME #2 BEGIN
    printf("\n  \n");
-   if(REN->stall_reg(bundle_dst) || REN->stall_branch(bundle_branch))
+   if(REN->stall_reg(bundle_dst) || REN->stall_branch(bundle_branch) || REN->stall_vpq(bundle_vp_eligible))
    {
       return;
    }
@@ -188,13 +194,35 @@ void pipeline_t::rename2() {
       }
       // FIX_ME #5 END
       //
+
      if( eligible(PAY.buf[index])){
+	     PAY.buf[index].vp_eligible=1;
+	if(REN->is_vp_perfect()){
 	 if (PAY.buf[index].good_instruction) {
                db_t *actual = get_pipe()->peek(PAY.buf[index].db_index); 
-	       PAY.buf[index].vp_eligible=1;
 	       PAY.buf[index].Predicted_value= actual->a_rdst[0].value;
+	       PAY.buf[index].vp_conf=3;
 		     
 		     }
+	}else if(REN->is_vp_oracle()){
+	
+	     PAY.buf[index].vpq_index = REN->vpq_update(PAY.buf[index].pc);
+	     if (REN->check_svp(PAY.buf[index].pc)){
+	        db_t *actual = get_pipe()->peek(PAY.buf[index].db_index);
+                uint64_t actual_value= actual->a_rdst[0].value;
+		int svp_index= REN->get_svp_index(PAY.buf[index].pc);
+	        int pred_value = REN->get_prediction_value(svp_index);
+                if (actual_value == pred_value){
+		    PAY.buf[index].vp_conf=3;
+                    PAY.buf[index].Predicted_value=pred_value;
+		}		
+	     }else{
+	     PAY.buf[index].vp_conf=0;
+	     
+	     }
+
+	
+	}
    }
    }
 

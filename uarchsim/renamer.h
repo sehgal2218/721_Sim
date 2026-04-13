@@ -26,24 +26,35 @@ typedef struct
 	bool amo_flag;
 	bool csr_flag;
 	uint64_t pc;
-	bool vpe_flag;   // VP eligibil
-	bool no_pred_flag;  // no orediction available
-	bool confident_flag;  // Confident about this prediciton
-	bool pred_correcrt_flag; // Prediction Correct flag
+	bool vp_eligible;   // VP valid
+	bool vp_no_pred;  // no orediction available
+	bool vp_conf;  // Confident about this prediciton
+	bool vp_pred_correct; // Prediction Correct flag
 }Active_List_struct;
 
 typedef struct {
+	uint64_t valid;
 	uint64_t tag;
 	uint64_t conf;
 	uint64_t last_value;
-        uint64_t stride;
+        int64_t stride;
         uint64_t instance;	
 } svp_struct;
+typedef struct {
+
+	uint64_t pc;
+	uint64_t value;
+
+} vpq_data_struct;
 
 typedef struct {
-        uint64_t PC;
-	uint64_t value;
+        vpq_data_struct *vpq_data;
+	uint64_t h;
+	uint64_t t;
+	uint64_t h_phase;
+	uint64_t t_phase;
 }vpq_struct;
+
 
 typedef struct
 {
@@ -69,7 +80,8 @@ private:
 	///   Value Prediction 
 	/////////////////////////////////////
        svp_struct *svp;
-       vpq_struct *vpq;
+       vpq_struct vpq;
+       int vpq_size;
        bool vp_perfect;
        int vp_oracle;
        int svp_index;
@@ -567,6 +579,21 @@ public:
 	// Query the exception bit of the indicated entry in the Active List.
 	/////////////////////////////////////////////////////////////////////
 	bool get_exception(uint64_t AL_index);
+
+	/////////////////////////////////////////////////////////////////////
+	// Value Prediction Functions
+	// //////////////////////////////////////////////////////////////////
+	
+bool stall_vpq(uint64_t bundle_vp_eligible);
+bool check_svp (uint64_t pc);
+int get_svp_index(uint64_t pc);
+uint64_t vpq_update(uint64_t pc);
+bool is_vp_perfect();
+bool is_vp_oracle();
+int get_prediction_value(int index);
+void vp_active_list_update(int AL_index,int vp_eligible, int vp_conf);
+int get_vp_conf();
+void set_vpq_value(int index,uint64_t value);
 };
 
 #endif // RENAMER_H
