@@ -215,6 +215,9 @@ void pipeline_t::rename2() {
                 if (actual_value == pred_value){
 		    PAY.buf[index].vp_conf=3;
                     PAY.buf[index].Predicted_value=pred_value;
+		}else{
+		PAY.buf[index].vp_conf=0;
+		
 		}		
 	     }else{
 	     PAY.buf[index].vp_conf=0;

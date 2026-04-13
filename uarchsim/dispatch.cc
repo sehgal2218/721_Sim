@@ -215,7 +215,7 @@ void pipeline_t::dispatch() {
       // FIX_ME #9 BEGIN
       if(PAY.buf[index].C_valid)
       {
-	 if (PAY.buf[index].vp_conf == REN->get_vp_conf()){
+	 if (PAY.buf[index].vp_eligible && PAY.buf[index].vp_conf >= REN->get_vp_conf()){
 	    REN->set_ready(PAY.buf[index].C_phys_reg);
 	    REN->write(PAY.buf[index].C_phys_reg,PAY.buf[index].Predicted_value);
 

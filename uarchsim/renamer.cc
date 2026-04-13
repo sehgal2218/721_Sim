@@ -19,7 +19,7 @@ renamer::renamer(uint64_t n_log_regs, uint64_t n_phys_regs, uint64_t n_branches,
     vpq.h=0;
     vpq.t=0;
     vpq.h_phase=0;
-    vpq.t_phase=1;
+    vpq.t_phase=0;
     vp_perfect = vp_perf;
     vp_oracle =vp_oracle_conf;
     svp_index = svp_index_bits;
@@ -378,29 +378,29 @@ void renamer::commit()
     
     if (active_list.at[index].vp_eligible){
        int vpq_index = vpq.h;
-       int svp_index = (active_list.at[index].pc >> 2) & ((1ULL << (svp_index)) - 1); 
-       int svp_tag = (active_list.at[index].pc >> svp_index) & ((1ULL << (svp_tag)) - 1); 
+       int s_index = (active_list.at[index].pc >> 2) & ((1ULL << svp_index) - 1); 
+       int s_tag = (active_list.at[index].pc >> (svp_index + 2)) & ((1ULL << svp_tag) - 1);; 
 
-       if (svp[svp_index].valid && svp[svp_index].tag == svp_tag){
-            int new_stride = vpq.vpq_data[vpq_index].value - svp[svp_index].last_value;
-	    if (new_stride == svp[svp_index].stride){
-	      svp[svp_index].conf++;
-	      if (svp[svp_index].conf>=3){
-	          svp[svp_index].conf=3;
+       if (svp[s_index].valid && svp[s_index].tag == s_tag){
+            int new_stride = vpq.vpq_data[vpq_index].value - svp[s_index].last_value;
+	    if (new_stride == svp[s_index].stride){
+	      svp[s_index].conf++;
+	      if (svp[s_index].conf>=3){
+	          svp[s_index].conf=3;
 	      }
 	    
 	    }else{
-	       svp[svp_index].stride=new_stride;
-	       svp[svp_index].conf=0;
+	       svp[s_index].stride=new_stride;
+	       svp[s_index].conf=0;
 	    }
        
        }else{
 	           int svp_instance=0;
-		   svp[svp_index].valid=1;
-		   svp[svp_index].conf=0;
-		   svp[svp_index].stride=vpq.vpq_data[vpq_index].value;
-		   svp[svp_index].last_value=vpq.vpq_data[vpq_index].value;
-		   svp[svp_index].tag = svp_tag;
+		   svp[s_index].valid=1;
+		   svp[s_index].conf=0;
+		   svp[s_index].stride=vpq.vpq_data[vpq_index].value;
+		   svp[s_index].last_value=vpq.vpq_data[vpq_index].value;
+		   svp[s_index].tag = s_tag;
 		   int temph = vpq.h;
 		   for (int i=0;i<vpq_size;i++){
 		        temph = temph+i;
@@ -417,13 +417,13 @@ void renamer::commit()
 			}
 		   
 		   }
-		   svp[svp_index].instance=svp_instance;
+		   svp[s_index].instance=svp_instance;
 
              
        }
 
        vpq.h++;
-       if(vpq.h == vpq.t)
+       if(vpq.h == vpq_size)
     {
         vpq.h = 0;
         vpq.h_phase = !vpq.h_phase;
@@ -485,23 +485,37 @@ bool renamer::get_exception(uint64_t AL_index)
 
 bool renamer::stall_vpq(uint64_t bundle_vp_eligible){
 
-uint64_t vpq_count;
-    if(vpq.h_phase == vpq.t_phase)
+    if(vpq.h == vpq.t)
     {
-        vpq_count =vpq.t - vpq.h;
+        if(vpq.h_phase == vpq.t_phase)
+        {
+            return false;
+        }
+        else
+        {
+            return true;
+        }
     }
     else
     {
-        vpq_count = vpq_size - (vpq.h - vpq.t);
-    }
-    
-    if(vpq_count >= bundle_vp_eligible)
-    {
-        return false;
-    }
-    else
-    {
-        return true;
+        uint64_t free_count;
+        if(vpq.h_phase == vpq.t_phase)
+        {
+            free_count = vpq_size - (vpq.t - vpq.h);
+        }
+        else
+        {
+            free_count = vpq.h - vpq.t;
+        }
+        
+        if(free_count >= bundle_vp_eligible)
+        {
+            return false;
+        }
+        else
+        {
+            return true;
+        }
     }
 
 
@@ -523,10 +537,10 @@ uint64_t index = vpq.t;
 }
 bool renamer::check_svp (uint64_t pc){
 
-      int index = (pc >> 2) & ((1ULL << (svp_index)) - 1);
-      int tag =  (pc >> svp_index) & ((1ULL << (svp_tag)) - 1);
+      int index = (pc >> 2) & ((1ULL << svp_index) - 1);;
+      int tag =  (pc >> (svp_index + 2)) & ((1ULL << svp_tag) - 1);;
       if (svp[index].valid && svp[index].tag==tag){
-	     svp[svp_index].instance++; 
+	     //svp[index].instance++; 
           return 1;
       
       }else{
@@ -537,7 +551,7 @@ bool renamer::check_svp (uint64_t pc){
 }
 
 int renamer::get_svp_index(uint64_t pc){
-      return (pc >> 2) & ((1ULL << (svp_index)) - 1);
+      return (pc >> 2) & ((1ULL << svp_index) - 1);;
 }
 
 bool renamer::is_vp_perfect(){
@@ -549,7 +563,7 @@ bool renamer::is_vp_oracle(){
 
 }
 
-int renamer::get_prediction_value(int index){
+uint64_t renamer::get_prediction_value(int index){
 
 
 return svp[index].last_value + svp[index].stride*svp[index].instance;
