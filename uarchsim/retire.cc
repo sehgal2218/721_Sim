@@ -146,7 +146,7 @@ void pipeline_t::retire(size_t &instret) {
             else
                next_inst_pc = INCREMENT_PC(PAY.buf[PAY.head].pc);
 
-            if (STORE_SETS) {
+            if (STORE_SETS || ORACLE_MDP) {
                MDP->squash();
             }
             // The head instruction was already committed above (fix #17b).
@@ -183,7 +183,7 @@ void pipeline_t::retire(size_t &instret) {
                MDP->update(load_pc, store_pc_violation);
             }
          }
-         if (STORE_SETS) {
+         if (STORE_SETS || ORACLE_MDP) {
             MDP->squash();
          }
 
@@ -204,7 +204,7 @@ void pipeline_t::retire(size_t &instret) {
          }
          trap = PAY.buf[PAY.head].trap.get();
 
-         if (STORE_SETS) {
+         if (STORE_SETS || ORACLE_MDP) {
             MDP->squash();
          }
 

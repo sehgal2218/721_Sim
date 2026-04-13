@@ -79,6 +79,10 @@
 #define IS_FP_OP(flags) ((flags) & (F_FCOMP | F_FMEM))
 #define IS_AMO(flags) ((flags) & (F_AMO))
 #define IS_CSR(flags) ((flags) & (F_CSR))
+///////////////////////////////////////////////////////////////////////////////
+
+#define IS_INTALU(flags)    ((flags) & (F_ICOMP))    // integer ALU instructions
+#define IS_FPALU(flags)     ((flags) & (F_FCOMP))    // floating-point ALU instructions
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -169,8 +173,7 @@ public:
       uint32_t fu_lat[]);
 
    ~pipeline_t();
-
-   //	void set_debug(bool value);
+       //	void set_debug(bool value);
    //	void set_histogram(bool value);
    bool get_histogram() { return histogram_enabled; }
    //	void reset(bool value);
@@ -208,6 +211,12 @@ public:
    // Copy registers from fast skip state to pipeline register file.
    // Also reset the AMT.
    void copy_state_to_micro();
+   // This function checks value-prediction eligibility.
+    // predINTALU, predFPALU, and predLOAD are all "bool" types,
+    // and are configured to be true or false based on corresponding
+    // simulator arguments being 1 or 0, respectively.
+    bool eligible(payload_t pay);
+
    uint64_t get_arch_reg_value(int reg_id);
    uint64_t get_pc() { return get_state()->pc; }
    uint32_t get_instruction(uint64_t inst_pc);

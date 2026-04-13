@@ -212,7 +212,14 @@ void pipeline_t::dispatch() {
       // FIX_ME #9 BEGIN
       if(PAY.buf[index].C_valid)
       {
+	 if (PAY.buf[index].vp_eligible){
+	    REN->set_ready(PAY.buf[index].C_phys_reg);
+	    REN->write(PAY.buf[index].C_phys_reg,PAY.buf[index].Predicted_value);
+
+	 }
+	 else{     
          REN->clear_ready(PAY.buf[index].C_phys_reg);
+	 }
       }
       // FIX_ME #9 END
 

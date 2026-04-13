@@ -187,6 +187,15 @@ void pipeline_t::rename2() {
          PAY.buf[index].branch_ID = REN->checkpoint();
       }
       // FIX_ME #5 END
+      //
+     if( eligible(PAY.buf[index])){
+	 if (PAY.buf[index].good_instruction) {
+               db_t *actual = get_pipe()->peek(PAY.buf[index].db_index); 
+	       PAY.buf[index].vp_eligible=1;
+	       PAY.buf[index].Predicted_value= actual->a_rdst[0].value;
+		     
+		     }
+   }
    }
 
    //

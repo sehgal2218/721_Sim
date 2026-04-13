@@ -16,6 +16,7 @@
 #include <algorithm>
 #include <sys/stat.h>
 #include "parameters.h"
+#include "payload.h"
 #include <ctime>
 
 #undef STATE
@@ -440,6 +441,20 @@ pipeline_t::pipeline_t(
    mmu->set_processor(this);
 }
 
+bool pipeline_t::eligible(payload_t pay) {
+    if (!pay.C_valid)
+        return(false);      // Any instruction without a destination register is ineligible.
+
+    // If we reached this point, the instruction has a destination register.
+    if (IS_INTALU(pay.flags))
+        return(VP_ELIGIBLE_INTALU); // instr. is INTALU type.  It is eligible if predINTALU is configured "true".
+    else if (IS_FPALU(pay.flags))
+        return(VP_ELIGIBLE_FPALU);  // instr. is FPALU type.  It is eligible if predFPALU is configured "true".
+    else if (IS_LOAD(pay.flags) && !IS_AMO(pay.flags))
+        return(VP_ELIGIBLE_LOAD);   // instr. is a normal LOAD (not rare load-with-reserv). It is eligible if predLOAD is configured "true".
+    else
+        return(false);      // instr. is none of the above major types, so it is never eligible
+}
 
 pipeline_t::~pipeline_t() {
    //stats->dump_knobs();
