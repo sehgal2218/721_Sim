@@ -115,7 +115,7 @@ void pipeline_t::rename2() {
 
    // FIX_ME #2 BEGIN
    printf("\n  \n");
-   if(REN->stall_reg(bundle_dst) || REN->stall_branch(bundle_branch) || REN->stall_vpq(bundle_vp_eligible))
+   if(REN->stall_reg(bundle_dst) || REN->stall_branch(bundle_branch) || (REN->stall_vpq(bundle_vp_eligible) && !REN->is_vp_perfect()))
    {
       return;
    }
@@ -203,6 +203,9 @@ void pipeline_t::rename2() {
 	       PAY.buf[index].Predicted_value= actual->a_rdst[0].value;
 	       PAY.buf[index].vp_conf=3;
 		     
+		     }else{
+		     
+		     PAY.buf[index].vp_conf=0;
 		     }
 	}else if(REN->is_vp_oracle()){
 	
@@ -210,8 +213,8 @@ void pipeline_t::rename2() {
 	     if (REN->check_svp(PAY.buf[index].pc)){
 	        db_t *actual = get_pipe()->peek(PAY.buf[index].db_index);
                 uint64_t actual_value= actual->a_rdst[0].value;
-		int svp_index= REN->get_svp_index(PAY.buf[index].pc);
-	        int pred_value = REN->get_prediction_value(svp_index);
+		uint64_t svp_index= REN->get_svp_index(PAY.buf[index].pc);
+	        uint64_t pred_value = REN->get_prediction_value(svp_index);
                 if (actual_value == pred_value){
 		    PAY.buf[index].vp_conf=3;
                     PAY.buf[index].Predicted_value=pred_value;

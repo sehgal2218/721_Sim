@@ -27,6 +27,20 @@ renamer::renamer(uint64_t n_log_regs, uint64_t n_phys_regs, uint64_t n_branches,
     vp_conf = vp_confmax;
     printf("\nValue Prediction Values:vp_perfect %d vp_oracle %d svp_index%d svp_tag %d vp_conf %d vp_size %d\n",vp_perfect,vp_oracle,svp_index,svp_tag,vp_conf,vpq_size);
      
+    for (int i=0;i<1<<svp_index_bits;i++){
+       svp[i].valid=0;
+	svp[i].tag=0;
+	svp[i].conf=0;
+	svp[i].last_value=0;
+	svp[i].stride=0;
+	svp[i].instance=0;
+    
+    }
+    for(int i=0;i<vpq_size;i++){
+    vpq.vpq_data[i].value=0;
+    vpq.vpq_data[i].pc=0;
+    
+    }
 
     ////////////// Struct init ///////////////
     rmt = new uint64_t[logical_reg_count];
@@ -376,7 +390,7 @@ void renamer::commit()
         amt[amt_index] = active_list.at[index].physical_dst_reg;
     }
     
-    if (active_list.at[index].vp_eligible){
+    if (active_list.at[index].vp_eligible && !vp_perfect){
        int vpq_index = vpq.h;
        int s_index = (active_list.at[index].pc >> 2) & ((1ULL << svp_index) - 1); 
        int s_tag = (active_list.at[index].pc >> (svp_index + 2)) & ((1ULL << svp_tag) - 1);; 
@@ -550,7 +564,7 @@ bool renamer::check_svp (uint64_t pc){
       }
 }
 
-int renamer::get_svp_index(uint64_t pc){
+uint64_t renamer::get_svp_index(uint64_t pc){
       return (pc >> 2) & ((1ULL << svp_index) - 1);;
 }
 

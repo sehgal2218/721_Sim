@@ -586,7 +586,7 @@ public:
 	
 bool stall_vpq(uint64_t bundle_vp_eligible);
 bool check_svp (uint64_t pc);
-int get_svp_index(uint64_t pc);
+uint64_t get_svp_index(uint64_t pc);
 uint64_t vpq_update(uint64_t pc);
 bool is_vp_perfect();
 bool is_vp_oracle();
