@@ -1,9 +1,10 @@
 #include "renamer.h"
 #include <cassert>
 #include <cstdio>
+#include <cmath>  
 ////////////////////////////////// CONSTRUCTOR ////////////////////////////////
 
-renamer::renamer(uint64_t n_log_regs, uint64_t n_phys_regs, uint64_t n_branches, uint64_t n_active,bool vp_perf,int vpq_size,bool vp_oracle_conf,int svp_index_bits,int svp_tag_bits,int vp_confmax)
+renamer::renamer(uint64_t n_log_regs, uint64_t n_phys_regs, uint64_t n_branches, uint64_t n_active,bool vp_perf,int vpq_size,bool vp_oracle_conf,int svp_index_bits,int svp_tag_bits,int vp_confmax,int vp_eligible_intalu,int vp_eligible_fpalu,int vp_eligible_load)
 {
     logical_reg_count = n_log_regs;
     physical_reg_count = n_phys_regs;
@@ -16,6 +17,11 @@ renamer::renamer(uint64_t n_log_regs, uint64_t n_phys_regs, uint64_t n_branches,
     svp = new svp_struct[1<<svp_index_bits];
     vpq.vpq_data = new vpq_data_struct[vpq_size];
     this->vpq_size = vpq_size;
+    this->vp_eligible_intalu = vp_eligible_intalu;
+    this->vp_eligible_fpalu = vp_eligible_fpalu;
+
+    this->vp_eligible_load = vp_eligible_load;
+
     vpq.h=0;
     vpq.t=0;
     vpq.h_phase=0;
@@ -25,7 +31,7 @@ renamer::renamer(uint64_t n_log_regs, uint64_t n_phys_regs, uint64_t n_branches,
     svp_index = svp_index_bits;
     svp_tag = svp_tag_bits;
     vp_conf = vp_confmax;
-    printf("\nValue Prediction Values:vp_perfect %d vp_oracle %d svp_index%d svp_tag %d vp_conf %d vp_size %d\n",vp_perfect,vp_oracle,svp_index,svp_tag,vp_conf,vpq_size);
+    //printf("\nValue Prediction Values:vp_perfect %d vp_oracle %d svp_index%d svp_tag %d vp_conf %d vp_size %d\n",vp_perfect,vp_oracle,svp_index,svp_tag,vp_conf,vpq_size);
      
     for (int i=0;i<1<<svp_index_bits;i++){
        svp[i].valid=0;
@@ -256,7 +262,10 @@ uint64_t renamer::dispatch_inst(bool dest_valid,uint64_t log_reg,uint64_t phys_r
     active_list.at[index].load_violation_flag = 0;
     active_list.at[index].value_mispred_flag = 0;
     active_list.at[index].branch_mispred_flag = 0;
-    active_list.at[index].vp_eligible = 0;
+   active_list.at[index].vp_eligible = 0;
+   active_list.at[index].vp_no_pred = 0;
+   active_list.at[index].vp_conf = 0;
+   active_list.at[index].vp_pred_correct = 1; 
 
     
     active_list.at[index].load_flag = load;
@@ -353,7 +362,7 @@ void renamer::resolve(uint64_t AL_index, uint64_t branch_ID, bool correct)
             uint64_t s_index = (pc >> 2) & ((1ULL << svp_index) - 1);
             uint64_t s_tag = (pc >> (svp_index + 2)) & ((1ULL << svp_tag) - 1);
             
-            if (svp[s_index].valid && (svp[s_index].tag == s_tag || svp_tag==0)) {
+            if (check_svp(pc)) {
                 if (svp[s_index].instance > 0) {
                     svp[s_index].instance--;
                 }
@@ -426,12 +435,34 @@ void renamer::commit()
         amt[amt_index] = active_list.at[index].physical_dst_reg;
     }
     
+    if (active_list.at[index].vp_eligible){
+    vp_eligible_count++;
+    if (active_list.at[index].vp_no_pred){
+        vp_miss++; 
+    }else{
+        if (active_list.at[index].vp_conf == vp_conf){
+            vp_conf_corr++;  // Count ALL confident predictions
+            if (!active_list.at[index].vp_pred_correct){
+                vp_conf_incorr++;  // Also count incorrect ones separately
+            }
+        }else{
+            if (active_list.at[index].vp_pred_correct){
+                vp_unconf_corr++;
+            }else{
+                vp_unconf_incorr++;	  
+            }
+        }
+    }
+}else{
+    vp_n_eligible_count++;
+}
+
     if (active_list.at[index].vp_eligible && !vp_perfect){
        int vpq_index = vpq.h;
        uint64_t s_index = (active_list.at[index].pc >> 2) & ((1ULL << svp_index) - 1); 
        uint64_t s_tag = (active_list.at[index].pc >> (svp_index + 2)) & ((1ULL << svp_tag) - 1); 
 
-       if (svp[s_index].valid ==1 && (svp[s_index].tag == s_tag || svp_tag==0)){
+       if (check_svp(active_list.at[index].pc)){
             int64_t new_stride = (int64_t)vpq.vpq_data[vpq_index].value - (int64_t)svp[s_index].last_value;
 	    if (new_stride == svp[s_index].stride){
 	      svp[s_index].conf++;
@@ -533,7 +564,7 @@ void renamer::squash()
         uint64_t s_index = (pc >> 2) & ((1ULL << svp_index) - 1);
         uint64_t s_tag = (pc >> (svp_index + 2)) & ((1ULL << svp_tag) - 1);
         
-        if (svp[s_index].valid && (svp[s_index].tag == s_tag || svp_tag==0)) {
+        if (check_svp(pc)) {
             if (svp[s_index].instance > 0) {
                 svp[s_index].instance--;
             }
@@ -629,7 +660,10 @@ uint64_t index = vpq.t;
 
 }
 bool renamer::check_svp (uint64_t pc){
-
+        
+	if (svp_tag==0){
+	return 1;
+	}
       uint64_t index = (pc >> 2) & ((1ULL << svp_index) - 1);;
       uint64_t tag =  (pc >> (svp_index + 2)) & ((1ULL << svp_tag) - 1);;
       if (svp[index].valid && (svp[index].tag==tag || svp_tag==0)){
@@ -661,12 +695,18 @@ uint64_t renamer::get_prediction_value(uint64_t index){
 return (uint64_t)((int64_t)svp[index].last_value + svp[index].stride*svp[index].instance);
 
 }
-void renamer::vp_active_list_update(uint64_t AL_index,int vp_eligible, int vp_conf){
+void renamer::vp_active_list_update(uint64_t AL_index,int vp_eligible, int vp_conf,int vp_pred){
 
         active_list.at[AL_index].vp_eligible = vp_eligible;
-	//active_list.at[AL_index].vp_conf =  vp_conf;
+	active_list.at[AL_index].vp_conf =  vp_conf;
+        active_list.at[AL_index].vp_no_pred = (vp_pred==0); 
 	
 }
+void renamer::vp_active_list_pred_no_correct(uint64_t AL_index){
+       active_list.at[AL_index].vp_pred_correct=0;
+}
+
+
 
 int renamer::get_vp_conf(){
     
@@ -684,6 +724,71 @@ int renamer::get_svp_conf(uint64_t index){
 
 }	
 
+void renamer::dump_stats(FILE *fp){
+
+    uint64_t total = vp_eligible_count + vp_n_eligible_count;
+    
+    fprintf(fp, "VPU MEASUREMENTS-----------------------------------\n");
+    fprintf(fp, "vpmeas_ineligible         : %10lu (%6.2f%%) // Not eligible for value prediction.\n", 
+            vp_n_eligible_count, 100.0 * vp_n_eligible_count / total);
+    fprintf(fp, "vpmeas_eligible           : %10lu (%6.2f%%) // Eligible for value prediction.\n", 
+            vp_eligible_count, 100.0 * vp_eligible_count / total);
+    fprintf(fp, "   vpmeas_miss            : %10lu (%6.2f%%) // VPU was unable to generate a value prediction (e.g., SVP miss).\n", 
+            vp_miss, 100.0 * vp_miss / total);
+    fprintf(fp, "   vpmeas_conf_corr       : %10lu (%6.2f%%) // VPU generated a confident and correct value prediction.\n", 
+            vp_conf_corr - vp_conf_incorr, 100.0 * (vp_conf_corr - vp_conf_incorr) / total);
+    fprintf(fp, "   vpmeas_conf_incorr     : %10lu (%6.2f%%) // VPU generated a confident and incorrect value prediction. (MISPREDICTION)\n", 
+            vp_conf_incorr, 100.0 * vp_conf_incorr / total);
+    fprintf(fp, "   vpmeas_unconf_corr     : %10lu (%6.2f%%) // VPU generated an unconfident and correct value prediction. (LOST OPPORTUNITY)\n", 
+            vp_unconf_corr, 100.0 * vp_unconf_corr / total);
+    fprintf(fp, "   vpmeas_unconf_incorr   : %10lu (%6.2f%%) // VPU generated an unconfident and incorrect value prediction.\n", 
+            vp_unconf_incorr, 100.0 * vp_unconf_incorr / total);
 
 
+}
 
+void renamer::dump_init_stats(FILE *fp){
+
+// Calculate bits for conf field: ceil(log2(confmax+1))
+    uint64_t conf_bits = (uint64_t)ceil(log2((double)(vp_conf + 1)));
+    // Calculate bits for instance counter: ceil(log2(VPQsize))
+    uint64_t instance_bits = (uint64_t)ceil(log2((double)vpq_size));
+    // Bits per SVP entry
+    uint64_t bits_per_entry = svp_tag + conf_bits + 64 + 64 + instance_bits;  // tag + conf + retired_value + stride + instance
+    // Total SVP entries
+    uint64_t svp_entries = 1ULL << svp_index;
+    // Total storage cost
+    uint64_t total_bits = svp_entries * bits_per_entry;
+    double total_bytes = (double)total_bits / 8.0;
+    double total_kb = total_bytes / 1024.0;
+
+    fprintf(fp, "\n=== VALUE PREDICTOR ============================================================\n\n");
+    
+    fprintf(fp, "VP-eligible configuration:\n");
+    fprintf(fp, "   predINTALU = %d\n", vp_eligible_intalu);
+    fprintf(fp, "   predFPALU  = %d\n", vp_eligible_fpalu);
+    fprintf(fp, "   predLOAD   = %d\n", vp_eligible_load);
+    fprintf(fp, "\n");
+
+    fprintf(fp, "VALUE PREDICTOR = stride (Project 4 spec. implementation)\n");
+    fprintf(fp, "   VPQsize         = %d\n", vpq_size);
+    fprintf(fp, "   oracleconf      = %d (%s)\n", vp_oracle, vp_oracle ? "oracle confidence" : "real confidence");
+    fprintf(fp, "   # index bits    = %d\n", svp_index);
+    fprintf(fp, "   # tag bits      = %d\n", svp_tag);
+    fprintf(fp, "   confmax         = %d\n", vp_conf);
+    fprintf(fp, "\n");
+
+    fprintf(fp, "COST ACCOUNTING\n");
+    fprintf(fp, "   One SVP entry:\n");
+    fprintf(fp, "      tag           : %3d bits  // num_tag_bits\n", svp_tag);
+    fprintf(fp, "      conf          : %3lu bits  // formula: (uint64_t)ceil(log2((double)(confmax+1)))\n", conf_bits);
+    fprintf(fp, "      retired_value :  64 bits  // RISCV64 integer size.\n");
+    fprintf(fp, "      stride        :  64 bits  // RISCV64 integer size. Competition opportunity: truncate stride to far fewer bits based on stride distribution of stride-predictable instructions.\n");
+    fprintf(fp, "      instance ctr  : %3lu bits  // formula: (uint64_t)ceil(log2((double)VPQsize))\n", instance_bits);
+    fprintf(fp, "      -------------------------\n");
+    fprintf(fp, "      bits/SVP entry: %3lu bits\n", bits_per_entry);
+    fprintf(fp, "   Total storage cost (bits) = (%lu SVP entries x %lu bits/SVP entry) = %lu bits\n", 
+            svp_entries, bits_per_entry, total_bits);
+    fprintf(fp, "   Total storage cost (bytes) = %.2f B (%.2f KB)\n", total_bytes, total_kb);
+
+} 

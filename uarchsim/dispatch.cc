@@ -151,7 +151,7 @@ void pipeline_t::dispatch() {
       csr_flag = IS_CSR(PAY.buf[index].flags);
       PAY.buf[index].AL_index = REN->dispatch_inst(PAY.buf[index].C_valid ,PAY.buf[index].C_log_reg, PAY.buf[index].C_phys_reg, load_flag, store_flag, branch_flag, amo_flag, csr_flag, PAY.buf[index].pc);
 
-      REN->vp_active_list_update(PAY.buf[index].AL_index,PAY.buf[index].vp_eligible,PAY.buf[index].vp_conf);
+      REN->vp_active_list_update(PAY.buf[index].AL_index,PAY.buf[index].vp_eligible,PAY.buf[index].vp_conf,PAY.buf[index].vp_pred);
       
       // FIX_ME #7 END
 

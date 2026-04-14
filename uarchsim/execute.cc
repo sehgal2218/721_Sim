@@ -82,11 +82,14 @@ void pipeline_t::execute(unsigned int lane_number) {
                REN->write(PAY.buf[index].C_phys_reg, PAY.buf[index].C_value.dw);
 	       if (PAY.buf[index].vp_eligible && !REN->is_vp_perfect()) {
                   REN->set_vpq_value(PAY.buf[index].vpq_index, PAY.buf[index].C_value.dw);
-		  if (PAY.buf[index].vp_conf == REN->get_vp_conf()){
-		    if(PAY.buf[index].C_value.dw != PAY.buf[index].Predicted_value){
-		         REN->set_value_misprediction(PAY.buf[index].AL_index);
-		    }
-	    }
+		 if (PAY.buf[index].vp_pred) {
+            if (PAY.buf[index].C_value.dw != PAY.buf[index].Predicted_value) {
+                REN->vp_active_list_pred_no_correct(PAY.buf[index].AL_index);
+                if (PAY.buf[index].vp_conf == REN->get_vp_conf()) {
+                    REN->set_value_misprediction(PAY.buf[index].AL_index);
+                }
+            }
+        } 
            }
             }
             // FIX_ME #13 END
@@ -149,12 +152,16 @@ void pipeline_t::execute(unsigned int lane_number) {
             REN->write(PAY.buf[index].C_phys_reg, PAY.buf[index].C_value.dw);
 	    if (PAY.buf[index].vp_eligible && !REN->is_vp_perfect()) {
     REN->set_vpq_value(PAY.buf[index].vpq_index, PAY.buf[index].C_value.dw);
-    if (PAY.buf[index].vp_conf == REN->get_vp_conf()){
-		    if(PAY.buf[index].C_value.dw != PAY.buf[index].Predicted_value){
-		         REN->set_value_misprediction(PAY.buf[index].AL_index);
-		    }
+           if (PAY.buf[index].vp_pred) {
+            if (PAY.buf[index].C_value.dw != PAY.buf[index].Predicted_value) {
+                REN->vp_active_list_pred_no_correct(PAY.buf[index].AL_index);
+                if (PAY.buf[index].vp_conf == REN->get_vp_conf()) {
+                    REN->set_value_misprediction(PAY.buf[index].AL_index);
+                }
+            }
+        }
+	    
 	    }
-           }
          }
          // FIX_ME #14 END
       }
@@ -278,11 +285,14 @@ void pipeline_t::load_replay() {
          REN->write(PAY.buf[index].C_phys_reg, PAY.buf[index].C_value.dw);
 	 if (PAY.buf[index].vp_eligible && !REN->is_vp_perfect()) {
     REN->set_vpq_value(PAY.buf[index].vpq_index, PAY.buf[index].C_value.dw);
-            if (PAY.buf[index].vp_conf == REN->get_vp_conf()){
-		    if(PAY.buf[index].C_value.dw != PAY.buf[index].Predicted_value){
-		         REN->set_value_misprediction(PAY.buf[index].AL_index);
-		    }
-	    }
+           if (PAY.buf[index].vp_pred) {
+            if (PAY.buf[index].C_value.dw != PAY.buf[index].Predicted_value) {
+		    REN->vp_active_list_pred_no_correct(PAY.buf[index].AL_index);
+                if (PAY.buf[index].vp_conf == REN->get_vp_conf()) {
+                    REN->set_value_misprediction(PAY.buf[index].AL_index);
+                }
+            }
+        } 
            }
          // FIX_ME #18a END
       }

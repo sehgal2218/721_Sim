@@ -1,7 +1,8 @@
 #ifndef RENAMER_H
 #define RENAMER_H
 #include <inttypes.h>
-
+#include <stdlib.h>
+#include <cstdio>
 typedef struct 
 {
 	uint64_t *ft = nullptr;
@@ -27,9 +28,9 @@ typedef struct
 	bool csr_flag;
 	uint64_t pc;
 	bool vp_eligible;   // VP valid
-	//bool vp_no_pred;  // no orediction available
-	//int vp_conf;  // Confident about this prediciton
-	//bool vp_pred_correct; // Prediction Correct flag
+	bool vp_no_pred;  // no orediction available
+	int vp_conf;  // Confident about this prediciton
+	bool vp_pred_correct=1; // Prediction Correct flag
 }Active_List_struct;
 
 typedef struct {
@@ -88,6 +89,9 @@ private:
        int svp_index;
        int svp_tag;
        int vp_conf;
+       int vp_eligible_intalu;
+       int vp_eligible_fpalu;
+       int vp_eligible_load;
 
 
 	/////////////////////////////////////////////////////////////////////
@@ -229,10 +233,14 @@ private:
 	/////////////////////////////////////////////////////////////////////
 
 public:
-	uint64_t vp_eligible_count=0;
-	uint64_t vp_n_eligible_count=0;
-	uint64_t vp_miss=0;
-	uint64_t vp_c_conf=0;
+
+    uint64_t vp_eligible_count = 0;      // vpmeas_eligible
+    uint64_t vp_n_eligible_count = 0;    // vpmeas_ineligible
+    uint64_t vp_miss = 0;                // vpmeas_miss
+    uint64_t vp_conf_corr = 0;              // vpmeas_conf_corr (confident and correct)
+    uint64_t vp_conf_incorr = 0;         // vpmeas_conf_incorr (confident and incorrect - misprediction)
+    uint64_t vp_unconf_corr = 0;         // vpmeas_unconf_corr (unconfident and correct - lost opportunity)
+    uint64_t vp_unconf_incorr = 0;       
 	////////////////////////////////////////
 	// Public functions.
 	////////////////////////////////////////
@@ -255,7 +263,7 @@ public:
 	// Then, initialize the data structures based on the knowledge
 	// that the pipeline is intially empty (no in-flight instructions yet).
 	/////////////////////////////////////////////////////////////////////
-	renamer(uint64_t n_log_regs, uint64_t n_phys_regs, uint64_t n_branches, uint64_t n_active,bool vp_perf,int vpq_size,bool vp_oracle_conf,int svp_index_bits,int svp_tag_bits,int vp_confmax);
+	renamer(uint64_t n_log_regs, uint64_t n_phys_regs, uint64_t n_branches, uint64_t n_active,bool vp_perf,int vpq_size,bool vp_oracle_conf,int svp_index_bits,int svp_tag_bits,int vp_confmax,int vp_eligible_intalu,int vp_eligible_fpalu,int vp_eligible_load);
 
 	/////////////////////////////////////////////////////////////////////
 	// This is the destructor, used to clean up memory space and
@@ -596,12 +604,14 @@ uint64_t vpq_update(uint64_t pc);
 bool is_vp_perfect();
 bool is_vp_oracle();
 uint64_t get_prediction_value(uint64_t index);
-void vp_active_list_update(uint64_t AL_index,int vp_eligible, int vp_conf);
+void vp_active_list_update(uint64_t AL_index,int vp_eligible, int vp_conf,int vp_pred);
 int get_vp_conf();
 void set_vpq_value(uint64_t index,uint64_t value);
 void increment_svp_instance(uint64_t pc);
-int get_svp_conf(uint64_t index);	
-
+int get_svp_conf(uint64_t index);
+void dump_init_stats(FILE *fp);
+void dump_stats(FILE *fp);
+void vp_active_list_pred_no_correct(uint64_t AL_index);
 };
 
 #endif // RENAMER_H

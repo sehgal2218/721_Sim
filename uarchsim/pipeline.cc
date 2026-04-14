@@ -241,7 +241,7 @@ pipeline_t::pipeline_t(
    ////////////////////////////////////////////////////////////
    // Set up the register renaming modules.
    ////////////////////////////////////////////////////////////
-   REN = new renamer(NXPR + NFPR, prf_size, num_chkpts, rob_size,PERFECT_VALUE_PRED,VPQ_SIZE,ORACLE_CONF,SVP_INDEX_BITS,SVP_TAG_BITS,SVP_CONF_MAX);
+   REN = new renamer(NXPR + NFPR, prf_size, num_chkpts, rob_size,PERFECT_VALUE_PRED,VPQ_SIZE,ORACLE_CONF,SVP_INDEX_BITS,SVP_TAG_BITS,SVP_CONF_MAX,VP_ELIGIBLE_INTALU,VP_ELIGIBLE_FPALU,VP_ELIGIBLE_LOAD);
 
    /////////////////////////////////////////////////////////////
    // Pipeline register between the Rename and Dispatch Stages.
@@ -415,6 +415,8 @@ pipeline_t::pipeline_t(
    fprintf(stats_log, "IBP_BHR_LENGTH = %d\n", IBP_BHR_LENGTH);
    fprintf(stats_log, "ENABLE_TRACE_CACHE = %d\n", (ENABLE_TRACE_CACHE ? 1 : 0));
 
+    REN->dump_init_stats(stats_log);
+
    fprintf(stats_log, "\n=== INTERNAL SIMULATOR STRUCTURES ===============================================\n\n");
 
    fprintf(stats_log, "PAYLOAD_BUFFER_SIZE = %d\n", PAY.get_size());
@@ -474,6 +476,7 @@ pipeline_t::~pipeline_t() {
 
    FetchUnit->output(stats->get_counter("commit_count"), stats->get_counter("cycle_count"), stats_log);
    LSU.dump_stats(extra_wait_time_for_inum, stats_log);
+   REN->dump_stats(stats_log);
 
 #ifdef RISCV_MICRO_DEBUG
    fclose(this->fetch_log);

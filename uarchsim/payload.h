@@ -203,6 +203,7 @@ typedef struct {
    bool     vp_eligible; // tells whether the value is vp eligible or not
    int vp_conf;
    uint64_t vpq_index;
+   int vp_pred;
    ////////////////////////
    // Set by Issue Stage.
    ////////////////////////
