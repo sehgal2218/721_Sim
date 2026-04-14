@@ -192,6 +192,9 @@ uint64_t renamer::checkpoint()
 
             branch_cp[i].fl_head = free_list.head;
             branch_cp[i].fl_h_phase = free_list.h_phase;
+	     branch_cp[i].vpq_t = vpq.t;
+            branch_cp[i].vpq_t_phase = vpq.t_phase;
+
             break;
         }
     }
@@ -254,9 +257,6 @@ uint64_t renamer::dispatch_inst(bool dest_valid,uint64_t log_reg,uint64_t phys_r
     active_list.at[index].value_mispred_flag = 0;
     active_list.at[index].branch_mispred_flag = 0;
     active_list.at[index].vp_eligible = 0;
-    active_list.at[index].vp_no_pred = 0;
-    active_list.at[index].vp_conf = 0;
-    active_list.at[index].vp_pred_correct = 0;
 
     
     active_list.at[index].load_flag = load;
@@ -345,6 +345,31 @@ void renamer::resolve(uint64_t AL_index, uint64_t branch_ID, bool correct)
         {
             active_list.t_phase = active_list.h_phase;
         }
+	uint64_t temp = branch_cp[branch_ID].vpq_t;
+        bool temp_phase = branch_cp[branch_ID].vpq_t_phase;
+
+        while (temp != vpq.t || temp_phase != vpq.t_phase) {
+            uint64_t pc = vpq.vpq_data[temp].pc;
+            uint64_t s_index = (pc >> 2) & ((1ULL << svp_index) - 1);
+            uint64_t s_tag = (pc >> (svp_index + 2)) & ((1ULL << svp_tag) - 1);
+            
+            if (svp[s_index].valid && (svp[s_index].tag == s_tag || svp_tag==0)) {
+                if (svp[s_index].instance > 0) {
+                    svp[s_index].instance--;
+                }
+            }
+            
+            temp++;
+            if (temp == (uint64_t)vpq_size) {
+                temp = 0;
+                temp_phase = !temp_phase;
+            }
+        }
+        vpq.t = branch_cp[branch_ID].vpq_t;
+        vpq.t_phase = branch_cp[branch_ID].vpq_t_phase;
+
+
+
     }
 }
 
@@ -406,7 +431,7 @@ void renamer::commit()
        uint64_t s_index = (active_list.at[index].pc >> 2) & ((1ULL << svp_index) - 1); 
        uint64_t s_tag = (active_list.at[index].pc >> (svp_index + 2)) & ((1ULL << svp_tag) - 1); 
 
-       if (svp[s_index].valid ==1 && svp[s_index].tag == s_tag){
+       if (svp[s_index].valid ==1 && (svp[s_index].tag == s_tag || svp_tag==0)){
             int64_t new_stride = (int64_t)vpq.vpq_data[vpq_index].value - (int64_t)svp[s_index].last_value;
 	    if (new_stride == svp[s_index].stride){
 	      svp[s_index].conf++;
@@ -483,6 +508,46 @@ void renamer::squash()
     active_list.t_phase = active_list.h_phase;
 
     GBM = 0;
+     
+  //  int temp=vpq.h;
+  //  int temp_pc=0;
+  //  int temp_index=0;
+
+  //  for (int i=0;i<vpq_size;i++){
+  //   temph = (vpq.h+i)%vpq_size;
+  //   temp_pc=vpq.vpq_data[temp].pc;
+  //   temp_index=get_svp_index(temp_pc);
+  //   if (check_svp(temp_pc)){
+  //       svp[temp_index].instance--;
+  //   }
+  //   
+  //       if (temph == vpq.t){	 
+  //		 break;
+  //       } 
+  //  }
+  uint64_t temp = vpq.h;
+    bool temp_phase = vpq.h_phase;
+
+    while (temp != vpq.t || temp_phase != vpq.t_phase) {
+        uint64_t pc = vpq.vpq_data[temp].pc;
+        uint64_t s_index = (pc >> 2) & ((1ULL << svp_index) - 1);
+        uint64_t s_tag = (pc >> (svp_index + 2)) & ((1ULL << svp_tag) - 1);
+        
+        if (svp[s_index].valid && (svp[s_index].tag == s_tag || svp_tag==0)) {
+            if (svp[s_index].instance > 0) {
+                svp[s_index].instance--;
+            }
+        }
+        
+        temp++;
+        if (temp == (uint64_t)vpq_size) {
+            temp = 0;
+            temp_phase = !temp_phase;
+        }
+    }
+    vpq.t=vpq.h;
+    vpq.t_phase=vpq.h_phase;
+
 }
 
 
@@ -567,7 +632,7 @@ bool renamer::check_svp (uint64_t pc){
 
       uint64_t index = (pc >> 2) & ((1ULL << svp_index) - 1);;
       uint64_t tag =  (pc >> (svp_index + 2)) & ((1ULL << svp_tag) - 1);;
-      if (svp[index].valid && svp[index].tag==tag){
+      if (svp[index].valid && (svp[index].tag==tag || svp_tag==0)){
           return 1;
       
       }else{
@@ -599,7 +664,7 @@ return (uint64_t)((int64_t)svp[index].last_value + svp[index].stride*svp[index].
 void renamer::vp_active_list_update(uint64_t AL_index,int vp_eligible, int vp_conf){
 
         active_list.at[AL_index].vp_eligible = vp_eligible;
-	active_list.at[AL_index].vp_conf =  vp_conf;
+	//active_list.at[AL_index].vp_conf =  vp_conf;
 	
 }
 
@@ -613,9 +678,9 @@ void renamer::set_vpq_value(uint64_t index,uint64_t value){
 	vpq.vpq_data[index].value=value;
 
 }
-void renamer::set_svp_conf_oracle(uint64_t index){
+int renamer::get_svp_conf(uint64_t index){
 
-	svp[index].conf=vp_conf;
+	return svp[index].conf;
 
 }	
 

@@ -27,9 +27,9 @@ typedef struct
 	bool csr_flag;
 	uint64_t pc;
 	bool vp_eligible;   // VP valid
-	bool vp_no_pred;  // no orediction available
-	int vp_conf;  // Confident about this prediciton
-	bool vp_pred_correct; // Prediction Correct flag
+	//bool vp_no_pred;  // no orediction available
+	//int vp_conf;  // Confident about this prediciton
+	//bool vp_pred_correct; // Prediction Correct flag
 }Active_List_struct;
 
 typedef struct {
@@ -70,6 +70,7 @@ typedef struct
 	uint64_t fl_head = 0, fl_tail = 0;
 	bool fl_h_phase = 0, fl_t_phase = 0;
 	uint64_t GBM;
+	uint64_t vpq_t=0,vpq_t_phase=0;
 }branch_checkpoint;
 
 class renamer {
@@ -599,7 +600,7 @@ void vp_active_list_update(uint64_t AL_index,int vp_eligible, int vp_conf);
 int get_vp_conf();
 void set_vpq_value(uint64_t index,uint64_t value);
 void increment_svp_instance(uint64_t pc);
-void set_svp_conf_oracle(uint64_t index);	
+int get_svp_conf(uint64_t index);	
 
 };
 
