@@ -159,11 +159,6 @@ void pipeline_t::writeback(unsigned int lane_number) {
 
       // FIX_ME #16 BEGIN
       REN->set_complete(PAY.buf[index].AL_index);
-      if (PAY.buf[index].vp_eligible==1 && !REN->is_vp_perfect()){
-      
-	      REN->set_vpq_value(PAY.buf[index].vpq_index,(int64_t)PAY.buf[index].C_value.dw);
-      
-      }
       // FIX_ME #16 END
 
       //////////////////////////////////////////////////////////////////////////////////////////////////////////

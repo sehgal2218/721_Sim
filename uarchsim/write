@@ -1,0 +1,87 @@
+./dispatch.cc:   if(REN->stall_dispatch(i))
+./dispatch.cc:      PAY.buf[index].AL_index = REN->dispatch_inst(PAY.buf[index].C_valid ,PAY.buf[index].C_log_reg, PAY.buf[index].C_phys_reg, load_flag, store_flag, branch_flag, amo_flag, csr_flag, PAY.buf[index].pc);
+./dispatch.cc:      REN->vp_active_list_update(PAY.buf[index].AL_index,PAY.buf[index].vp_eligible,PAY.buf[index].vp_conf);
+./dispatch.cc:         A_ready = REN->is_ready(PAY.buf[index].A_phys_reg);
+./dispatch.cc:         B_ready = REN->is_ready(PAY.buf[index].B_phys_reg);
+./dispatch.cc:         D_ready = REN->is_ready(PAY.buf[index].D_phys_reg);
+./dispatch.cc:	 if (PAY.buf[index].vp_eligible && PAY.buf[index].vp_conf == REN->get_vp_conf()){
+./dispatch.cc:	    REN->set_ready(PAY.buf[index].C_phys_reg);
+./dispatch.cc:	    REN->write(PAY.buf[index].C_phys_reg,PAY.buf[index].Predicted_value);
+./dispatch.cc:         REN->clear_ready(PAY.buf[index].C_phys_reg);
+./dispatch.cc:         REN->set_complete(PAY.buf[index].AL_index);
+./dispatch.cc:            REN->set_exception(PAY.buf[index].AL_index);
+./dispatch.cc:         REN->set_exception(PAY.buf[index].AL_index);
+./dispatch.cc:            REN->set_exception(PAY.buf[index].AL_index);
+./execute.cc:		    if (!PAY.buf[index].vp_eligible  || PAY.buf[index].vp_conf != REN->get_vp_conf()){
+./execute.cc:               REN->set_ready(PAY.buf[index].C_phys_reg);
+./execute.cc:               REN->write(PAY.buf[index].C_phys_reg, PAY.buf[index].C_value.dw);
+./execute.cc:	       if (PAY.buf[index].vp_eligible && !REN->is_vp_perfect()) {
+./execute.cc:    REN->set_vpq_value(PAY.buf[index].vpq_index, (int64_t)PAY.buf[index].C_value.dw);
+./execute.cc:            REN->set_exception(al_index);
+./execute.cc:            REN->write(PAY.buf[index].C_phys_reg, PAY.buf[index].C_value.dw);
+./execute.cc:	    if (PAY.buf[index].vp_eligible && !REN->is_vp_perfect()) {
+./execute.cc:    REN->set_vpq_value(PAY.buf[index].vpq_index, (int64_t)PAY.buf[index].C_value.dw);
+./execute.cc:		 if (!PAY.buf[index].vp_eligible  || PAY.buf[index].vp_conf != REN->get_vp_conf()){
+./execute.cc:            REN->set_ready(PAY.buf[index].C_phys_reg);
+./execute.cc:	 if (!PAY.buf[index].vp_eligible  || PAY.buf[index].vp_conf != REN->get_vp_conf()){
+./execute.cc:         REN->set_ready(PAY.buf[index].C_phys_reg);
+./execute.cc:         REN->write(PAY.buf[index].C_phys_reg, PAY.buf[index].C_value.dw);
+./execute.cc:	 if (PAY.buf[index].vp_eligible && !REN->is_vp_perfect()) {
+./execute.cc:    REN->set_vpq_value(PAY.buf[index].vpq_index, (int64_t)PAY.buf[index].C_value.dw);
+./execute.cc:      REN->set_complete(PAY.buf[index].AL_index);
+./retire.cc:   head_valid = REN->precommit(completed, exception, load_viol, br_misp, val_misp, load, store, branch, amo, csr, offending_PC);
+./retire.cc:            REN->set_exception(PAY.buf[PAY.head].AL_index);
+./retire.cc:         REN->commit();
+./retire.cc:      REN->set_ready(PAY.buf[index].C_phys_reg);
+./retire.cc:      REN->write(PAY.buf[index].C_phys_reg, PAY.buf[index].C_value.dw);
+./retire.cc:         REN->set_ready(PAY.buf[index].C_phys_reg);
+./retire.cc:         REN->write(PAY.buf[index].C_phys_reg, PAY.buf[index].C_value.dw);
+./rename.cc:   if(REN->stall_reg(bundle_dst) || REN->stall_branch(bundle_branch) || (REN->stall_vpq(bundle_vp_eligible) && !REN->is_vp_perfect()))
+./rename.cc:         PAY.buf[index].A_phys_reg = REN->rename_rsrc(PAY.buf[index].A_log_reg);
+./rename.cc:         PAY.buf[index].B_phys_reg = REN->rename_rsrc(PAY.buf[index].B_log_reg);
+./rename.cc:         PAY.buf[index].D_phys_reg = REN->rename_rsrc(PAY.buf[index].D_log_reg);
+./rename.cc:         PAY.buf[index].C_phys_reg = REN->rename_rdst(PAY.buf[index].C_log_reg);
+./rename.cc:      RENAME2[i].branch_mask = REN->get_branch_mask();
+./rename.cc:         PAY.buf[index].branch_ID = REN->checkpoint();
+./rename.cc:	     REN->vp_eligible_count++;
+./rename.cc:	if(REN->is_vp_perfect()){
+./rename.cc:	}else if(REN->is_vp_oracle()){
+./rename.cc:	     PAY.buf[index].vpq_index = REN->vpq_update(PAY.buf[index].pc);
+./rename.cc:	     //   uint64_t s_index= REN->get_svp_index(PAY.buf[index].pc);
+./rename.cc:               // int64_t pred_value = REN->get_prediction_value(s_index);
+./rename.cc:	     if (REN->check_svp(PAY.buf[index].pc)){
+./rename.cc:		    REN->increment_svp_instance(PAY.buf[index].pc);
+./rename.cc:		uint64_t s_index= REN->get_svp_index(PAY.buf[index].pc);
+./rename.cc:	        int64_t pred_value = REN->get_prediction_value(s_index);
+./rename.cc:			REN->vp_c_conf++;
+./rename.cc:		    PAY.buf[index].vp_conf=REN->get_vp_conf();
+./rename.cc:		     REN->vp_miss++;
+./rename.cc:        REN->vp_n_eligible_count++;
+./register_read.cc:	      if (!PAY.buf[index].vp_eligible  || PAY.buf[index].vp_conf != REN->get_vp_conf()){
+./register_read.cc:         REN->set_ready(PAY.buf[index].C_phys_reg);
+./register_read.cc:         PAY.buf[index].A_value.dw = REN->read(PAY.buf[index].A_phys_reg);
+./register_read.cc:         PAY.buf[index].B_value.dw = REN->read(PAY.buf[index].B_phys_reg);
+./register_read.cc:         PAY.buf[index].D_value.dw = REN->read(PAY.buf[index].D_phys_reg);
+./pipeline.cc:      REN->write(REN->rename_rsrc(i), get_state()->XPR[i]);
+./pipeline.cc:      REN->write(REN->rename_rsrc(i + NXPR), get_state()->FPR[i]);
+./pipeline.cc:   return REN->read(REN->rename_rsrc(reg_id));
+./pipeline.cc:   REN->set_exception(al_index);
+./pipeline.cc:   REN->set_load_violation(al_index);
+./pipeline.cc:   REN->set_branch_misprediction(al_index);
+./pipeline.cc:   REN->set_value_misprediction(al_index);
+Binary file ./.rename.cc.swo matches
+./stats.cc:   fprintf(stats_log, "[stats] vp_eligible %u\n",proc->REN->vp_eligible_count);
+./stats.cc:   fprintf(stats_log, "[vp_n_eligible] %u\n",proc->REN->vp_n_eligible_count);
+./stats.cc:   fprintf(stats_log, "[vp_miss] %u\n",proc->REN->vp_miss);
+./stats.cc:   fprintf(stats_log, "[vp_c_cong] %u\n",proc->REN->vp_c_conf);
+./checker.cc:      assert(REN->get_exception(PAY.buf[head].AL_index));
+Binary file ./.rename.cc.swp matches
+./lsu.cc:            proc->REN->set_ready(proc->PAY.buf[SQ[sq_head].pay_index].C_phys_reg);
+./lsu.cc:            proc->REN->write(proc->PAY.buf[SQ[sq_head].pay_index].C_phys_reg, sc_result);
+./squash.cc:   REN->squash();
+./writeback.cc:            REN->resolve(PAY.buf[index].AL_index, PAY.buf[index].branch_ID, true);
+./writeback.cc:            REN->resolve(PAY.buf[index].AL_index, PAY.buf[index].branch_ID, true);
+./writeback.cc:            REN->resolve(PAY.buf[index].AL_index, PAY.buf[index].branch_ID, false);
+./writeback.cc:      REN->set_complete(PAY.buf[index].AL_index);
+./writeback.cc:      if (PAY.buf[index].vp_eligible==1 && !REN->is_vp_perfect()){
+./writeback.cc:	      //REN->set_vpq_value(PAY.buf[index].vpq_index,(int64_t)PAY.buf[index].C_value.dw);

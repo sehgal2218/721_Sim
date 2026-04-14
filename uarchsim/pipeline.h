@@ -388,6 +388,7 @@ private:
 
 public:
    // The thread id.
+   //renamer *REN;
    unsigned int Tid;
 
    // The simulator cycle.

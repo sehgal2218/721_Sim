@@ -315,6 +315,11 @@ void stats_t::update_rates() {
 
 void stats_t::dump_counters() {
    fprintf(stats_log, "[stats]\n");
+   //fprintf(stats_log, "[stats] vp_eligible %u\n",proc->REN->vp_eligible_count);
+   //fprintf(stats_log, "[vp_n_eligible] %u\n",proc->REN->vp_n_eligible_count);
+   //fprintf(stats_log, "[vp_miss] %u\n",proc->REN->vp_miss);
+   //fprintf(stats_log, "[vp_c_cong] %u\n",proc->REN->vp_c_conf);
+
    std::map<std::string, counter_t *, ltstr>::iterator ctr_iter;
    for (ctr_iter = counter_map.begin(); ctr_iter != counter_map.end(); ctr_iter++) {
       fprintf(stats_log, "%s : %" PRIu64 "\n", ctr_iter->second->name, ctr_iter->second->count);

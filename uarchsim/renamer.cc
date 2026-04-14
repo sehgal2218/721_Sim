@@ -159,10 +159,16 @@ uint64_t renamer::rename_rdst(uint64_t log_reg)
     }
 
     rmt[log_reg] = physical_reg;
-    //prf_ready_bit[physical_reg] = false; 
+    prf_ready_bit[physical_reg] = false; 
 
     return physical_reg;
 
+}
+
+void renamer::increment_svp_instance(uint64_t pc) {
+    uint64_t index = (pc >> 2) & ((1ULL << svp_index) - 1);
+    uint64_t tag   = (pc >> (svp_index + 2)) & ((1ULL << svp_tag) - 1);
+        svp[index].instance++;
 }
 
 uint64_t renamer::checkpoint()
@@ -400,8 +406,8 @@ void renamer::commit()
        uint64_t s_index = (active_list.at[index].pc >> 2) & ((1ULL << svp_index) - 1); 
        uint64_t s_tag = (active_list.at[index].pc >> (svp_index + 2)) & ((1ULL << svp_tag) - 1); 
 
-       if (svp[s_index].valid && svp[s_index].tag == s_tag){
-            int64_t new_stride = vpq.vpq_data[vpq_index].value - svp[s_index].last_value;
+       if (svp[s_index].valid ==1 && svp[s_index].tag == s_tag){
+            int64_t new_stride = (int64_t)vpq.vpq_data[vpq_index].value - (int64_t)svp[s_index].last_value;
 	    if (new_stride == svp[s_index].stride){
 	      svp[s_index].conf++;
 	      if (svp[s_index].conf>=vp_conf){
@@ -562,7 +568,6 @@ bool renamer::check_svp (uint64_t pc){
       uint64_t index = (pc >> 2) & ((1ULL << svp_index) - 1);;
       uint64_t tag =  (pc >> (svp_index + 2)) & ((1ULL << svp_tag) - 1);;
       if (svp[index].valid && svp[index].tag==tag){
-	     svp[index].instance++; 
           return 1;
       
       }else{
@@ -585,10 +590,10 @@ bool renamer::is_vp_oracle(){
 
 }
 
-int64_t renamer::get_prediction_value(uint64_t index){
+uint64_t renamer::get_prediction_value(uint64_t index){
 
 
-return svp[index].last_value + svp[index].stride*(int64_t)svp[index].instance;
+return (uint64_t)((int64_t)svp[index].last_value + svp[index].stride*svp[index].instance);
 
 }
 void renamer::vp_active_list_update(uint64_t AL_index,int vp_eligible, int vp_conf){
@@ -603,12 +608,16 @@ int renamer::get_vp_conf(){
 	return vp_conf;
 
 }
-void renamer::set_vpq_value(uint64_t index,int64_t value){
+void renamer::set_vpq_value(uint64_t index,uint64_t value){
 
 	vpq.vpq_data[index].value=value;
 
 }
+void renamer::set_svp_conf_oracle(uint64_t index){
 
+	svp[index].conf=vp_conf;
+
+}	
 
 
 
