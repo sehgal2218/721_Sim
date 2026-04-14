@@ -75,7 +75,7 @@ void pipeline_t::execute(unsigned int lane_number) {
             // FIX_ME #13 BEGIN
             if (hit && PAY.buf[index].C_valid) 
             {
-		    if (!(PAY.buf[index].vp_eligible  && PAY.buf[index].vp_conf == REN->get_vp_conf())){
+		    if (!PAY.buf[index].vp_eligible  || PAY.buf[index].vp_conf != REN->get_vp_conf()){
                IQ.wakeup(PAY.buf[index].C_phys_reg, true);
 		    }
                REN->set_ready(PAY.buf[index].C_phys_reg);
@@ -197,7 +197,7 @@ void pipeline_t::execute(unsigned int lane_number) {
          // FIX_ME #11b BEGIN
          if (PAY.buf[index].C_valid && !IS_LOAD(PAY.buf[index].flags) && !IS_AMO(PAY.buf[index].flags)) 
          {
-		 if (!(PAY.buf[index].vp_eligible  && PAY.buf[index].vp_conf == REN->get_vp_conf())){
+		 if (!PAY.buf[index].vp_eligible  || PAY.buf[index].vp_conf != REN->get_vp_conf()){
             IQ.wakeup(PAY.buf[index].C_phys_reg, true);
 		 }
             REN->set_ready(PAY.buf[index].C_phys_reg);
@@ -255,13 +255,13 @@ void pipeline_t::load_replay() {
          // 2. See #13 (in execute.cc), and implement steps 3a,3b,3c.
 
          // FIX_ME #18a BEGIN
-	 if (!(PAY.buf[index].vp_eligible  && PAY.buf[index].vp_conf == REN->get_vp_conf())){
+	 if (!PAY.buf[index].vp_eligible  || PAY.buf[index].vp_conf != REN->get_vp_conf()){
          IQ.wakeup(PAY.buf[index].C_phys_reg, true);
 	 }
          REN->set_ready(PAY.buf[index].C_phys_reg);
          REN->write(PAY.buf[index].C_phys_reg, PAY.buf[index].C_value.dw);
 	 if (PAY.buf[index].vp_eligible && !REN->is_vp_perfect()) {
-    REN->set_vpq_value(PAY.buf[index].vpq_index, PAY.buf[index].C_value.dw);
+    REN->set_vpq_value(PAY.buf[index].vpq_index, (int64_t)PAY.buf[index].C_value.dw);
            }
          // FIX_ME #18a END
       }

@@ -247,6 +247,11 @@ uint64_t renamer::dispatch_inst(bool dest_valid,uint64_t log_reg,uint64_t phys_r
     active_list.at[index].load_violation_flag = 0;
     active_list.at[index].value_mispred_flag = 0;
     active_list.at[index].branch_mispred_flag = 0;
+    active_list.at[index].vp_eligible = 0;
+    active_list.at[index].vp_no_pred = 0;
+    active_list.at[index].vp_conf = 0;
+    active_list.at[index].vp_pred_correct = 0;
+
     
     active_list.at[index].load_flag = load;
     active_list.at[index].store_flag = store;
@@ -583,7 +588,7 @@ bool renamer::is_vp_oracle(){
 int64_t renamer::get_prediction_value(uint64_t index){
 
 
-return svp[index].last_value + svp[index].stride*svp[index].instance;
+return svp[index].last_value + svp[index].stride*(int64_t)svp[index].instance;
 
 }
 void renamer::vp_active_list_update(uint64_t AL_index,int vp_eligible, int vp_conf){
@@ -598,7 +603,7 @@ int renamer::get_vp_conf(){
 	return vp_conf;
 
 }
-void renamer::set_vpq_value(uint64_t index,uint64_t value){
+void renamer::set_vpq_value(uint64_t index,int64_t value){
 
 	vpq.vpq_data[index].value=value;
 
