@@ -770,15 +770,23 @@ void renamer::dump_init_stats(FILE *fp){
     fprintf(fp, "   predLOAD   = %d\n", vp_eligible_load);
     fprintf(fp, "\n");
 
+    
+    if (!vp_perfect){
     fprintf(fp, "VALUE PREDICTOR = stride (Project 4 spec. implementation)\n");
     fprintf(fp, "   VPQsize         = %d\n", vpq_size);
     fprintf(fp, "   oracleconf      = %d (%s)\n", vp_oracle, vp_oracle ? "oracle confidence" : "real confidence");
     fprintf(fp, "   # index bits    = %d\n", svp_index);
     fprintf(fp, "   # tag bits      = %d\n", svp_tag);
     fprintf(fp, "   confmax         = %d\n", vp_conf);
+    }else{
+    
+     fprintf(fp, "VALUE PREDICTOR = perfect\n");
+    
+    }
     fprintf(fp, "\n");
 
     fprintf(fp, "COST ACCOUNTING\n");
+    if(!vp_perfect){
     fprintf(fp, "   One SVP entry:\n");
     fprintf(fp, "      tag           : %3d bits  // num_tag_bits\n", svp_tag);
     fprintf(fp, "      conf          : %3lu bits  // formula: (uint64_t)ceil(log2((double)(confmax+1)))\n", conf_bits);
@@ -790,5 +798,9 @@ void renamer::dump_init_stats(FILE *fp){
     fprintf(fp, "   Total storage cost (bits) = (%lu SVP entries x %lu bits/SVP entry) = %lu bits\n", 
             svp_entries, bits_per_entry, total_bits);
     fprintf(fp, "   Total storage cost (bytes) = %.2f B (%.2f KB)\n", total_bytes, total_kb);
+    }else{
+    
+         fprintf(fp, "  Impossible.\n");
+    }
 
 } 
