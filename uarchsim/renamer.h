@@ -56,6 +56,12 @@ typedef struct {
 	uint64_t t_phase;
 }vpq_struct;
 
+typedef struct {
+    uint64_t valid;
+    uint64_t tag;
+    uint64_t last_value;
+    uint64_t conf;
+} lvp_struct;
 
 typedef struct
 {
@@ -92,6 +98,12 @@ private:
        int vp_eligible_intalu;
        int vp_eligible_fpalu;
        int vp_eligible_load;
+
+       lvp_struct *lvp;
+       int         lvp_index;     
+       int         lvp_tag;        
+       int         lvp_conf_max;   
+       bool        lvp_enabled;
 
 
 	/////////////////////////////////////////////////////////////////////
@@ -263,7 +275,7 @@ public:
 	// Then, initialize the data structures based on the knowledge
 	// that the pipeline is intially empty (no in-flight instructions yet).
 	/////////////////////////////////////////////////////////////////////
-	renamer(uint64_t n_log_regs, uint64_t n_phys_regs, uint64_t n_branches, uint64_t n_active,bool vp_perf,int vpq_size,bool vp_oracle_conf,int svp_index_bits,int svp_tag_bits,int vp_confmax,int vp_eligible_intalu,int vp_eligible_fpalu,int vp_eligible_load);
+	renamer(uint64_t n_log_regs, uint64_t n_phys_regs, uint64_t n_branches, uint64_t n_active,bool vp_perf,int vpq_size,bool vp_oracle_conf,int svp_index_bits,int svp_tag_bits,int vp_confmax,int vp_eligible_intalu,int vp_eligible_fpalu,int vp_eligible_load,bool lvp_en, int lvp_index_bits, int lvp_tag_bits, int lvp_confmax);
 
 	/////////////////////////////////////////////////////////////////////
 	// This is the destructor, used to clean up memory space and
@@ -612,6 +624,13 @@ int get_svp_conf(uint64_t index);
 void dump_init_stats(FILE *fp);
 void dump_stats(FILE *fp);
 void vp_active_list_pred_no_correct(uint64_t AL_index);
+
+bool     check_lvp(uint64_t pc);
+uint64_t get_lvp_index(uint64_t pc);
+uint64_t get_lvp_prediction(uint64_t pc);
+bool     lvp_hit_confidence(uint64_t pc);
+void     train_lvp(uint64_t pc, uint64_t value);
+bool     is_lvp_enabled();
 };
 
 #endif // RENAMER_H

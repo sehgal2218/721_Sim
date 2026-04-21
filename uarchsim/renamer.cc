@@ -4,12 +4,30 @@
 #include <cmath>  
 ////////////////////////////////// CONSTRUCTOR ////////////////////////////////
 
-renamer::renamer(uint64_t n_log_regs, uint64_t n_phys_regs, uint64_t n_branches, uint64_t n_active,bool vp_perf,int vpq_size,bool vp_oracle_conf,int svp_index_bits,int svp_tag_bits,int vp_confmax,int vp_eligible_intalu,int vp_eligible_fpalu,int vp_eligible_load)
+renamer::renamer(uint64_t n_log_regs, uint64_t n_phys_regs, uint64_t n_branches, uint64_t n_active,bool vp_perf,int vpq_size,bool vp_oracle_conf,int svp_index_bits,int svp_tag_bits,int vp_confmax,int vp_eligible_intalu,int vp_eligible_fpalu,int vp_eligible_load,bool lvp_en, int lvp_index_bits, int lvp_tag_bits, int lvp_confmax)
 {
     logical_reg_count = n_log_regs;
     physical_reg_count = n_phys_regs;
     unresolved_branch_count = n_branches;
     active_list_size = n_active;
+
+    // LVP initialization
+    lvp_enabled = lvp_en;
+    lvp_index   = lvp_index_bits;
+    lvp_tag     = lvp_tag_bits;
+    lvp_conf_max = lvp_confmax;
+    
+    if (lvp_enabled) {
+        lvp = new lvp_struct[1 << lvp_index_bits];
+        for (int i = 0; i < (1 << lvp_index_bits); i++) {
+            lvp[i].valid = 0;
+            lvp[i].tag = 0;
+            lvp[i].last_value = 0;
+            lvp[i].conf = 0;
+        }
+    } else {
+        lvp = nullptr;
+    }
 
     //////////////////////////////////////////
     // Value Prediction
@@ -513,10 +531,12 @@ void renamer::commit()
         vpq.h_phase = !vpq.h_phase;
     }
 
-    
+
+    if (lvp_enabled) {
+    train_lvp(active_list.at[index].pc, vpq.vpq_data[vpq_index].value);
+     }
+
     }
-
-
     active_list.head++;
     if(active_list.head == active_list.size)
     {
@@ -804,3 +824,65 @@ void renamer::dump_init_stats(FILE *fp){
     }
 
 } 
+
+
+bool renamer::is_lvp_enabled() {
+    return lvp_enabled;
+}
+
+uint64_t renamer::get_lvp_index(uint64_t pc) {
+    return (pc >> 2) & ((1ULL << lvp_index) - 1);
+}
+
+bool renamer::check_lvp(uint64_t pc) {
+    if (!lvp_enabled) return false;
+
+    uint64_t idx = get_lvp_index(pc);
+    if (!lvp[idx].valid) return false;
+
+    if (lvp_tag > 0) {
+        uint64_t tag = (pc >> (lvp_index + 2)) & ((1ULL << lvp_tag) - 1);
+        if (lvp[idx].tag != tag) return false;
+    }
+    return true;
+}
+
+uint64_t renamer::get_lvp_prediction(uint64_t pc) {
+    uint64_t idx = get_lvp_index(pc);
+    return lvp[idx].last_value;
+}
+
+bool renamer::lvp_hit_confidence(uint64_t pc) {
+    if (!check_lvp(pc)) return false;
+    uint64_t idx = get_lvp_index(pc);
+    return (lvp[idx].conf == (uint64_t)lvp_conf_max);
+}
+
+void renamer::train_lvp(uint64_t pc, uint64_t value) {
+    if (!lvp_enabled) return;
+
+    uint64_t idx = get_lvp_index(pc);
+    uint64_t tag = (lvp_tag > 0) ? ((pc >> (lvp_index + 2)) & ((1ULL << lvp_tag) - 1)) : 0;
+
+    if (lvp[idx].valid && (lvp_tag == 0 || lvp[idx].tag == tag)) {
+        // Hit: train existing entry
+        if (lvp[idx].last_value == value) {
+            // Correct prediction — bump confidence
+            if (lvp[idx].conf < (uint64_t)lvp_conf_max) {
+                lvp[idx].conf++;
+            }
+        } else {
+            // Incorrect — update value, reset confidence
+            lvp[idx].last_value = value;
+            lvp[idx].conf = 0;
+        }
+    } else {
+        // Miss: install new entry
+        lvp[idx].valid = 1;
+        lvp[idx].tag = tag;
+        lvp[idx].last_value = value;
+        lvp[idx].conf = 0;
+    }
+}
+
+
