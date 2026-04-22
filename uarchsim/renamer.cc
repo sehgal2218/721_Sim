@@ -4,7 +4,7 @@
 #include <cmath>  
 ////////////////////////////////// CONSTRUCTOR ////////////////////////////////
 
-renamer::renamer(uint64_t n_log_regs, uint64_t n_phys_regs, uint64_t n_branches, uint64_t n_active,bool vp_perf,int vpq_size,bool vp_oracle_conf,int svp_index_bits,int svp_tag_bits,int vp_confmax,int vp_eligible_intalu,int vp_eligible_fpalu,int vp_eligible_load,bool lvp_en, int lvp_index_bits, int lvp_tag_bits, int lvp_confmax)
+renamer::renamer(uint64_t n_log_regs, uint64_t n_phys_regs, uint64_t n_branches, uint64_t n_active,bool vp_perf,int vpq_size,bool vp_oracle_conf,int svp_index_bits,int svp_tag_bits,int vp_confmax,int vp_eligible_intalu,int vp_eligible_fpalu,int vp_eligible_load,bool lvp_en, int lvp_index_bits, int lvp_tag_bits, int lvp_confmax,bool fcm_en,int fcm_pred_index_bits, int fcm_pred_tag_bits,int fcm_ctx_index_bits,  int fcm_ctx_tag_bits,int fcm_confmax)
 {
     logical_reg_count = n_log_regs;
     physical_reg_count = n_phys_regs;
@@ -29,6 +29,32 @@ renamer::renamer(uint64_t n_log_regs, uint64_t n_phys_regs, uint64_t n_branches,
         lvp = nullptr;
     }
 
+    fcm_enabled     = fcm_en;
+    fcm_pred_index  = fcm_pred_index_bits;
+    fcm_pred_tag    = fcm_pred_tag_bits;
+    fcm_ctx_index   = fcm_ctx_index_bits;
+    fcm_ctx_tag     = fcm_ctx_tag_bits;
+    fcm_conf_max    = fcm_confmax;
+    
+    if (fcm_enabled) {
+        fcm_pred = new fcm1_entry_t[1 << fcm_pred_index_bits];
+        for (int i = 0; i < (1 << fcm_pred_index_bits); i++) {
+            fcm_pred[i].valid = 0;
+            fcm_pred[i].tag = 0;
+            fcm_pred[i].next_value = 0;
+            fcm_pred[i].conf = 0;
+        }
+    
+        fcm_ctx = new fcm1_ctx_entry_t[1 << fcm_ctx_index_bits];
+        for (int i = 0; i < (1 << fcm_ctx_index_bits); i++) {
+            fcm_ctx[i].valid = 0;
+            fcm_ctx[i].tag = 0;
+            fcm_ctx[i].prev_value = 0;
+        }
+    } else {
+        fcm_pred = nullptr;
+        fcm_ctx  = nullptr;
+    }
     //////////////////////////////////////////
     // Value Prediction
     /////////////////////////////////////////
@@ -535,6 +561,9 @@ void renamer::commit()
     if (lvp_enabled) {
     train_lvp(active_list.at[index].pc, vpq.vpq_data[vpq_index].value);
      }
+    if (fcm_enabled) {
+    train_fcm(active_list.at[index].pc, vpq.vpq_data[vpq_index].value);
+    }
 
     }
     active_list.head++;
@@ -885,4 +914,117 @@ void renamer::train_lvp(uint64_t pc, uint64_t value) {
     }
 }
 
+/////////////////////////////////////////////////////////////////////////////
+// Context table index: PC bits only
+uint64_t renamer::fcm_ctx_idx_hash(uint64_t pc, int idx_bits) {
+    return (pc >> 2) & ((1ULL << idx_bits) - 1);
+}
 
+// Context table tag: upper PC bits
+uint64_t renamer::fcm_ctx_tag_hash(uint64_t pc, int idx_bits, int tag_bits) {
+    if (tag_bits == 0) return 0;
+    return (pc >> (idx_bits + 2)) & ((1ULL << tag_bits) - 1);
+}
+
+// Prediction table index: hash of PC and prev_value
+uint64_t renamer::fcm_pred_idx_hash(uint64_t pc, uint64_t prev_value, int idx_bits) {
+    uint64_t pc_bits = (pc >> 2);
+    uint64_t val_fold = prev_value ^ (prev_value >> 16) ^ (prev_value >> 32) ^ (prev_value >> 48);
+    return (pc_bits ^ val_fold) & ((1ULL << idx_bits) - 1);
+}
+
+// Prediction table tag: different fold to decorrelate from index
+uint64_t renamer::fcm_pred_tag_hash(uint64_t pc, uint64_t prev_value, int idx_bits, int tag_bits) {
+    if (tag_bits == 0) return 0;
+    uint64_t pc_shift = (pc >> (idx_bits + 2));
+    uint64_t val_fold = prev_value ^ (prev_value >> tag_bits) ^ (prev_value >> (2 * tag_bits));
+    return (pc_shift ^ val_fold) & ((1ULL << tag_bits) - 1);
+}
+
+bool renamer::is_fcm_enabled() {
+    return fcm_enabled;
+}
+
+bool renamer::check_fcm(uint64_t pc) {
+    if (!fcm_enabled) return false;
+
+    // Check context table first
+    uint64_t cidx = fcm_ctx_idx_hash(pc, fcm_ctx_index);
+    if (!fcm_ctx[cidx].valid) return false;
+    if (fcm_ctx_tag > 0) {
+        uint64_t ctag = fcm_ctx_tag_hash(pc, fcm_ctx_index, fcm_ctx_tag);
+        if (fcm_ctx[cidx].tag != ctag) return false;
+    }
+
+    // Use prev_value to look up prediction table
+    uint64_t prev_val = fcm_ctx[cidx].prev_value;
+    uint64_t pidx = fcm_pred_idx_hash(pc, prev_val, fcm_pred_index);
+
+    if (!fcm_pred[pidx].valid) return false;
+    if (fcm_pred_tag > 0) {
+        uint64_t ptag = fcm_pred_tag_hash(pc, prev_val, fcm_pred_index, fcm_pred_tag);
+        if (fcm_pred[pidx].tag != ptag) return false;
+    }
+    return true;
+}
+
+uint64_t renamer::get_fcm_prediction(uint64_t pc) {
+    uint64_t cidx = fcm_ctx_idx_hash(pc, fcm_ctx_index);
+    uint64_t prev_val = fcm_ctx[cidx].prev_value;
+    uint64_t pidx = fcm_pred_idx_hash(pc, prev_val, fcm_pred_index);
+    return fcm_pred[pidx].next_value;
+}
+
+bool renamer::fcm_hit_confidence(uint64_t pc) {
+    if (!check_fcm(pc)) return false;
+    uint64_t cidx = fcm_ctx_idx_hash(pc, fcm_ctx_index);
+    uint64_t prev_val = fcm_ctx[cidx].prev_value;
+    uint64_t pidx = fcm_pred_idx_hash(pc, prev_val, fcm_pred_index);
+    return (fcm_pred[pidx].conf == (uint8_t)fcm_conf_max);
+}
+
+void renamer::train_fcm(uint64_t pc, uint64_t value) {
+    if (!fcm_enabled) return;
+
+    uint64_t cidx = fcm_ctx_idx_hash(pc, fcm_ctx_index);
+    uint64_t ctag = fcm_ctx_tag_hash(pc, fcm_ctx_index, fcm_ctx_tag);
+
+    // Check if context entry exists for this PC
+    bool has_ctx = fcm_ctx[cidx].valid &&
+                   (fcm_ctx_tag == 0 || fcm_ctx[cidx].tag == ctag);
+
+    if (!has_ctx) {
+        // No prior context: install context entry, no prediction training possible yet
+        fcm_ctx[cidx].valid = 1;
+        fcm_ctx[cidx].tag = ctag;
+        fcm_ctx[cidx].prev_value = value;
+        return;
+    }
+
+    // Use the stored prev_value as the context for training the prediction table
+    uint64_t prev_val = fcm_ctx[cidx].prev_value;
+    uint64_t pidx = fcm_pred_idx_hash(pc, prev_val, fcm_pred_index);
+    uint64_t ptag = fcm_pred_tag_hash(pc, prev_val, fcm_pred_index, fcm_pred_tag);
+
+    if (fcm_pred[pidx].valid &&
+        (fcm_pred_tag == 0 || fcm_pred[pidx].tag == ptag)) {
+        // Hit: update confidence based on prediction correctness
+        if (fcm_pred[pidx].next_value == value) {
+            if (fcm_pred[pidx].conf < (uint8_t)fcm_conf_max) {
+                fcm_pred[pidx].conf++;
+            }
+        } else {
+            fcm_pred[pidx].next_value = value;
+            fcm_pred[pidx].conf = 0;
+        }
+    } else {
+        // Miss: install new prediction entry
+        fcm_pred[pidx].valid = 1;
+        fcm_pred[pidx].tag = ptag;
+        fcm_pred[pidx].next_value = value;
+        fcm_pred[pidx].conf = 0;
+    }
+
+    // Advance context: current value becomes the "prev" for next prediction
+    fcm_ctx[cidx].prev_value = value;
+}

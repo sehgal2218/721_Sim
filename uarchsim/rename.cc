@@ -255,6 +255,10 @@ void pipeline_t::rename2() {
                    if (REN->is_lvp_enabled() && REN->lvp_hit_confidence(PAY.buf[index].pc)) {
                        PAY.buf[index].vp_conf = REN->get_vp_conf();
                        PAY.buf[index].Predicted_value = REN->get_lvp_prediction(PAY.buf[index].pc);
+                   }else if (REN->is_fcm_enabled() && REN->fcm_hit_confidence(PAY.buf[index].pc)) {
+                       PAY.buf[index].vp_pred = 1;
+                       PAY.buf[index].vp_conf = REN->get_vp_conf();
+                       PAY.buf[index].Predicted_value = REN->get_fcm_prediction(PAY.buf[index].pc);
                    } else {
                        PAY.buf[index].vp_conf = 0;
                        PAY.buf[index].Predicted_value = pred_value;
