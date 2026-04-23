@@ -241,7 +241,65 @@ pipeline_t::pipeline_t(
    ////////////////////////////////////////////////////////////
    // Set up the register renaming modules.
    ////////////////////////////////////////////////////////////
-   REN = new renamer(NXPR + NFPR, prf_size, num_chkpts, rob_size,PERFECT_VALUE_PRED,VPQ_SIZE,ORACLE_CONF,SVP_INDEX_BITS,SVP_TAG_BITS,SVP_CONF_MAX,VP_ELIGIBLE_INTALU,VP_ELIGIBLE_FPALU,VP_ELIGIBLE_LOAD,0,10,10,31,0,10,10,10,10,31);
+
+   // T1-A — SVP + LVP, both conf=31 (baseline SVP+LVP) — 28.25 KB
+//REN = new renamer(NXPR + NFPR, prf_size, num_chkpts, rob_size,PERFECT_VALUE_PRED,VPQ_SIZE,ORACLE_CONF,10,8,31,1,0,1,1,10,6,31,0,10,10,10,10,31);
+
+// T1-B — SVP + LVP asymmetric (LVP conf=7) — 28.00 KB
+//REN = new renamer(NXPR + NFPR, prf_size, num_chkpts, rob_size,PERFECT_VALUE_PRED,VPQ_SIZE,ORACLE_CONF,10,8,31,1,0,1,1,10,6,7,0,10,10,10,10,31);
+//
+//// T1-C — SVP + FCM, both conf=31 (baseline SVP+FCM) — 23.31 KB
+//REN = new renamer(NXPR + NFPR, prf_size, num_chkpts, rob_size,PERFECT_VALUE_PRED,VPQ_SIZE,ORACLE_CONF,9,8,31,1,0,1,0,10,10,31,1,10,6,9,6,31);
+//
+//// T1-D — SVP + FCM asymmetric (big SVP, FCM conf=7) — 25.47 KB
+//REN = new renamer(NXPR + NFPR, prf_size, num_chkpts, rob_size,PERFECT_VALUE_PRED,VPQ_SIZE,ORACLE_CONF,10,7,31,1,0,1,0,10,10,31,1,9,6,8,6,7);
+//
+//// T2-A — SVP-heavy (big tags) + small LVP — 23.75 KB
+//REN = new renamer(NXPR + NFPR, prf_size, num_chkpts, rob_size,PERFECT_VALUE_PRED,VPQ_SIZE,ORACLE_CONF,10,10,31,1,0,1,1,9,6,31,0,10,10,10,10,31);
+//
+//// T2-B — LVP very aggressive (conf=3) — 27.75 KB
+//REN = new renamer(NXPR + NFPR, prf_size, num_chkpts, rob_size,PERFECT_VALUE_PRED,VPQ_SIZE,ORACLE_CONF,10,8,31,1,0,1,1,10,6,3,0,10,10,10,10,31);
+//
+//// T2-C — FCM middle ground (conf=15) — 23.19 KB
+//REN = new renamer(NXPR + NFPR, prf_size, num_chkpts, rob_size,PERFECT_VALUE_PRED,VPQ_SIZE,ORACLE_CONF,9,8,31,1,0,1,0,10,10,31,1,10,6,9,6,15);
+//
+//// T2-D — FCM-heavy aggressive (conf=7) — 23.06 KB
+//REN = new renamer(NXPR + NFPR, prf_size, num_chkpts, rob_size,PERFECT_VALUE_PRED,VPQ_SIZE,ORACLE_CONF,9,8,31,1,0,1,0,10,10,31,1,10,6,9,6,7);
+//
+//// T3-A — SVP-only, max tag bits (sanity baseline) — 19.00 KB
+//REN = new renamer(NXPR + NFPR, prf_size, num_chkpts, rob_size,PERFECT_VALUE_PRED,VPQ_SIZE,ORACLE_CONF,10,10,31,1,0,1,0,10,10,31,0,10,10,10,10,31);
+
+// T5-E: 3-way hybrid, all confmax=127, ~31.22 KB
+// REQUIRES: hysteresis fix + SVP-miss-only fallback policy
+//REN = new renamer(NXPR + NFPR, prf_size, num_chkpts, rob_size,PERFECT_VALUE_PRED,VPQ_SIZE,ORACLE_CONF,10,10,127,1,0,1,1,9,6,127,1,9,6,8,6,127);
+
+// T6-A: 3-way hybrid (SVP+LVP+FCM), all confmax=31, SVP-miss-only fallback (~28.50 KB)
+//REN = new renamer(NXPR + NFPR, prf_size, num_chkpts, rob_size,PERFECT_VALUE_PRED,VPQ_SIZE,ORACLE_CONF,10,10,31,1,0,1,1,9,6,31,1,9,6,8,6,31);
+
+// T6-B: SVP+LVP only, both confmax=31 (no FCM) — ~28.50 KB
+//REN = new renamer(NXPR + NFPR, prf_size, num_chkpts, rob_size,PERFECT_VALUE_PRED,VPQ_SIZE,ORACLE_CONF,10,10,31,1,0,1,1,10,6,31,0,10,10,10,10,31);
+//
+//// T6-C: Asymmetric — SVP conf=31, LVP/FCM conf=63 (~28 KB)
+//REN = new renamer(NXPR + NFPR, prf_size, num_chkpts, rob_size,PERFECT_VALUE_PRED,VPQ_SIZE,ORACLE_CONF,10,10,31,1,0,1,1,9,6,63,1,9,6,8,6,63);
+//
+//// T6-D: SVP conf=63, LVP/FCM conf=31 (~28.50 KB)
+REN = new renamer(NXPR + NFPR, prf_size, num_chkpts, rob_size,PERFECT_VALUE_PRED,VPQ_SIZE,ORACLE_CONF,10,10,63,1,1,1,0,8,6,127,1,11,10,10,6,31,0,10,10,8,8);   
+// T7-B: SVP conf=127 + hybrid at conf=31 (push SVP further)
+//REN = new renamer(NXPR + NFPR, prf_size, num_chkpts, rob_size,PERFECT_VALUE_PRED,VPQ_SIZE,ORACLE_CONF,10,10,63,1,0,1,1,9,6,63,1,9,6,8,6,31);
+// T8-A: Max SVP tag bits + hybrid (31.59 KB) — eliminate any residual aliasing
+//REN = new renamer(NXPR + NFPR, prf_size, num_chkpts, rob_size,PERFECT_VALUE_PRED,VPQ_SIZE,ORACLE_CONF,10,16,63,1,0,1,1,9,6,31,1,9,6,8,6,31);
+
+// T8-B: More hybrid storage (bigger LVP and FCM tags) (31.09 KB)
+//REN = new renamer(NXPR + NFPR, prf_size, num_chkpts, rob_size,PERFECT_VALUE_PRED,VPQ_SIZE,ORACLE_CONF,10,10,63,1,0,1,1,9,8,31,1,9,8,8,6,31);
+
+// T8-C: SVP confmax=127, rest same as T6-D (30.97 KB) — test if even more paranoid SVP helps
+//REN = new renamer(NXPR + NFPR, prf_size, num_chkpts, rob_size,PERFECT_VALUE_PRED,VPQ_SIZE,ORACLE_CONF,10,10,127,1,0,1,1,9,6,31,1,9,6,8,6,31);
+// V1: 2d-SVP(10,10,63), no hybrid — 27.00 KB
+//REN = new renamer(NXPR + NFPR, prf_size, num_chkpts, rob_size,PERFECT_VALUE_PRED,VPQ_SIZE,ORACLE_CONF,10,10,63,1,0,1,0,10,10,31,0,10,10,10,10,31);
+// V2: 2d-SVP(9,10,63) + LVP(9,6,31) + FCM(10,6,8,6,31) — 30.03 KB
+//REN = new renamer(NXPR + NFPR, prf_size, num_chkpts, rob_size,PERFECT_VALUE_PRED,VPQ_SIZE,ORACLE_CONF,9,10,63,1,0,1,1,9,6,31,1,10,6,8,6,31);
+// V3: 2d-SVP(9,10,63) + LVP(9,6,31) + FCM(9,6,9,6,31) — 27.50 KB
+//REN = new renamer(NXPR + NFPR, prf_size, num_chkpts, rob_size,PERFECT_VALUE_PRED,VPQ_SIZE,ORACLE_CONF,9,10,63,1,0,1,1,9,6,31,1,9,6,9,6,31);
 
    /////////////////////////////////////////////////////////////
    // Pipeline register between the Rename and Dispatch Stages.

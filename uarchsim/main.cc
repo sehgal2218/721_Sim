@@ -154,7 +154,7 @@ static void set_vp_flags(const char *config) {
   
   bool oracle_conf; 
   
-  if (sscanf(config, "%u,%u,%u,%u,%u",&VPQ_SIZE,&oracle_conf,&SVP_INDEX_BITS,&SVP_TAG_BITS,&SVP_CONF_MAX) != 5){
+  if (sscanf(config, "%u,%bool,%u,%u,%u",&VPQ_SIZE,&oracle_conf,&SVP_INDEX_BITS,&SVP_TAG_BITS,&SVP_CONF_MAX) != 5){
       fprintf(stderr, "Incorrect usage of --vp-svp:\n");
       fprintf(stderr,"--vp-svp=<VPQsize>,<oracleconf>,<# index bits>,<# tag bits>,<confmax>\n");
    }  

@@ -4,7 +4,7 @@
 #include <cmath>  
 ////////////////////////////////// CONSTRUCTOR ////////////////////////////////
 
-renamer::renamer(uint64_t n_log_regs, uint64_t n_phys_regs, uint64_t n_branches, uint64_t n_active,bool vp_perf,int vpq_size,bool vp_oracle_conf,int svp_index_bits,int svp_tag_bits,int vp_confmax,int vp_eligible_intalu,int vp_eligible_fpalu,int vp_eligible_load,bool lvp_en, int lvp_index_bits, int lvp_tag_bits, int lvp_confmax,bool fcm_en,int fcm_pred_index_bits, int fcm_pred_tag_bits,int fcm_ctx_index_bits,  int fcm_ctx_tag_bits,int fcm_confmax)
+renamer::renamer(uint64_t n_log_regs, uint64_t n_phys_regs, uint64_t n_branches, uint64_t n_active,bool vp_perf,int vpq_size,bool vp_oracle_conf,int svp_index_bits,int svp_tag_bits,int vp_confmax,int vp_eligible_intalu,int vp_eligible_fpalu,int vp_eligible_load,bool lvp_en, int lvp_index_bits, int lvp_tag_bits, int lvp_confmax,bool fcm_en,int fcm_pred_index_bits, int fcm_pred_tag_bits,int fcm_ctx_index_bits,  int fcm_ctx_tag_bits,int fcm_confmax,bool gshare_en,int gshare_idx_bits_p, int gshare_tag_bits_p,int gshare_confmax, int gshare_history_bits_p)
 {
     logical_reg_count = n_log_regs;
     physical_reg_count = n_phys_regs;
@@ -55,6 +55,26 @@ renamer::renamer(uint64_t n_log_regs, uint64_t n_phys_regs, uint64_t n_branches,
         fcm_pred = nullptr;
         fcm_ctx  = nullptr;
     }
+
+    // gshare-VP initialization
+     gshare_enabled       = gshare_en;
+     gshare_idx_bits      = gshare_idx_bits_p;
+     gshare_tag_bits      = gshare_tag_bits_p;
+     gshare_conf_max      = gshare_confmax;
+     gshare_history_bits  = gshare_history_bits_p;
+     committed_ghr        = 0;
+     
+     if (gshare_enabled) {
+         gshare_vp = new gshare_vp_entry_t[1 << gshare_idx_bits];
+         for (int i = 0; i < (1 << gshare_idx_bits); i++) {
+             gshare_vp[i].valid = 0;
+             gshare_vp[i].tag = 0;
+             gshare_vp[i].value = 0;
+             gshare_vp[i].conf = 0;
+         }
+     } else {
+         gshare_vp = nullptr;
+     }
     //////////////////////////////////////////
     // Value Prediction
     /////////////////////////////////////////
@@ -83,6 +103,7 @@ renamer::renamer(uint64_t n_log_regs, uint64_t n_phys_regs, uint64_t n_branches,
 	svp[i].conf=0;
 	svp[i].last_value=0;
 	svp[i].stride=0;
+	svp[i].s1=0;
 	svp[i].instance=0;
     
     }
@@ -289,7 +310,7 @@ bool renamer::stall_dispatch(uint64_t bundle_inst)
     }
 }
 
-uint64_t renamer::dispatch_inst(bool dest_valid,uint64_t log_reg,uint64_t phys_reg,bool load,bool store,bool branch,bool amo,bool csr,uint64_t PC)
+uint64_t renamer::dispatch_inst(bool dest_valid,uint64_t log_reg,uint64_t phys_reg,bool load,bool store,bool branch,bool amo,bool csr,bool branch_predicted_taken,uint64_t PC)
 {
     assert(!stall_dispatch(1) && "Active List full during dispatch!");
 
@@ -317,6 +338,7 @@ uint64_t renamer::dispatch_inst(bool dest_valid,uint64_t log_reg,uint64_t phys_r
     active_list.at[index].branch_flag = branch;
     active_list.at[index].amo_flag = amo;
     active_list.at[index].csr_flag = csr;
+    active_list.at[index].branch_predicted_taken = branch_predicted_taken;
     active_list.at[index].pc = PC;
     
     active_list.tail++;
@@ -503,6 +525,13 @@ void renamer::commit()
 
     if (active_list.at[index].vp_eligible && !vp_perfect){
        int vpq_index = vpq.h;
+       bool is_load = active_list.at[index].load_flag && !active_list.at[index].amo_flag;
+       bool is_alu    = !active_list.at[index].load_flag && !active_list.at[index].store_flag
+                        && !active_list.at[index].branch_flag
+                        && !active_list.at[index].amo_flag
+                        && !active_list.at[index].csr_flag;
+// is_alu covers both INT ALU and FP ALU — you can't distinguish here.
+       if (is_alu || is_load ){
        uint64_t s_index = (active_list.at[index].pc >> 2) & ((1ULL << svp_index) - 1); 
        uint64_t s_tag = (active_list.at[index].pc >> (svp_index + 2)) & ((1ULL << svp_tag) - 1); 
 
@@ -514,10 +543,19 @@ void renamer::commit()
 	          svp[s_index].conf=vp_conf;
 	      }
 	    
-	    }else{
+	    }//else if (new_stride == svp[s_index].s1) {
+          // Tentative stride matched a second time — promote s1 to s2
+               // svp[s_index].stride = svp[s_index].s1;
+               // svp[s_index].conf = 0;
+         //  }   
+	    else{
 	       svp[s_index].stride=new_stride;
 	       svp[s_index].conf=0;
+	  //     if (svp[s_index].conf > 0) {
+	  //        svp[s_index].conf--;
+	  //    }
 	    }
+	    //svp[s_index].s1 = new_stride;
            svp[s_index].last_value=vpq.vpq_data[vpq_index].value;
 	   svp[s_index].instance--;
 
@@ -526,7 +564,9 @@ void renamer::commit()
 	           int svp_instance=0;
 		   svp[s_index].valid=1;
 		   svp[s_index].conf=0;
-		   svp[s_index].stride=vpq.vpq_data[vpq_index].value;
+		   // svp[s_index].stride=vpq.vpq_data[vpq_index].value;
+		   svp[s_index].stride=0;                        
+                   svp[s_index].s1=0; 
 		   svp[s_index].last_value=vpq.vpq_data[vpq_index].value;
 		   svp[s_index].tag = s_tag;
 		   int temph = vpq.h;
@@ -549,7 +589,7 @@ void renamer::commit()
 
              
        }
-
+       }
        vpq.h++;
        if(vpq.h == vpq_size)
     {
@@ -561,10 +601,22 @@ void renamer::commit()
     if (lvp_enabled) {
     train_lvp(active_list.at[index].pc, vpq.vpq_data[vpq_index].value);
      }
+
     if (fcm_enabled) {
     train_fcm(active_list.at[index].pc, vpq.vpq_data[vpq_index].value);
     }
+    if (gshare_enabled) {
+    train_gshare(active_list.at[index].pc,
+                 vpq.vpq_data[vpq_index].ghr_snapshot,
+                 vpq.vpq_data[vpq_index].value);
+    }
 
+    }
+    // Update committed_ghr for every retiring branch
+    if (active_list.at[index].branch_flag && gshare_enabled) {
+        bool actual_taken = active_list.at[index].branch_predicted_taken
+                            ^ active_list.at[index].branch_mispred_flag;
+        update_committed_ghr(actual_taken);
     }
     active_list.head++;
     if(active_list.head == active_list.size)
@@ -698,6 +750,7 @@ uint64_t renamer::vpq_update(uint64_t pc){
 
 uint64_t index = vpq.t;
     vpq.vpq_data[index].pc = pc;
+    vpq.vpq_data[index].ghr_snapshot = committed_ghr; 
     
     vpq.t++;
     if(vpq.t == vpq_size)
@@ -894,26 +947,27 @@ void renamer::train_lvp(uint64_t pc, uint64_t value) {
     uint64_t tag = (lvp_tag > 0) ? ((pc >> (lvp_index + 2)) & ((1ULL << lvp_tag) - 1)) : 0;
 
     if (lvp[idx].valid && (lvp_tag == 0 || lvp[idx].tag == tag)) {
-        // Hit: train existing entry
         if (lvp[idx].last_value == value) {
-            // Correct prediction — bump confidence
+            // Correct — bump confidence
             if (lvp[idx].conf < (uint64_t)lvp_conf_max) {
                 lvp[idx].conf++;
             }
         } else {
-            // Incorrect — update value, reset confidence
-            lvp[idx].last_value = value;
-            lvp[idx].conf = 0;
+            // Incorrect — decrement, only replace value when conf hits zero
+            if (lvp[idx].conf > 0) {
+                lvp[idx].conf--;
+            } else {
+                lvp[idx].last_value = value;
+            }
         }
     } else {
-        // Miss: install new entry
+        // Miss: install
         lvp[idx].valid = 1;
         lvp[idx].tag = tag;
         lvp[idx].last_value = value;
         lvp[idx].conf = 0;
     }
 }
-
 /////////////////////////////////////////////////////////////////////////////
 // Context table index: PC bits only
 uint64_t renamer::fcm_ctx_idx_hash(uint64_t pc, int idx_bits) {
@@ -982,49 +1036,120 @@ bool renamer::fcm_hit_confidence(uint64_t pc) {
     uint64_t pidx = fcm_pred_idx_hash(pc, prev_val, fcm_pred_index);
     return (fcm_pred[pidx].conf == (uint8_t)fcm_conf_max);
 }
-
 void renamer::train_fcm(uint64_t pc, uint64_t value) {
     if (!fcm_enabled) return;
 
     uint64_t cidx = fcm_ctx_idx_hash(pc, fcm_ctx_index);
     uint64_t ctag = fcm_ctx_tag_hash(pc, fcm_ctx_index, fcm_ctx_tag);
 
-    // Check if context entry exists for this PC
     bool has_ctx = fcm_ctx[cidx].valid &&
                    (fcm_ctx_tag == 0 || fcm_ctx[cidx].tag == ctag);
 
     if (!has_ctx) {
-        // No prior context: install context entry, no prediction training possible yet
         fcm_ctx[cidx].valid = 1;
         fcm_ctx[cidx].tag = ctag;
         fcm_ctx[cidx].prev_value = value;
         return;
     }
 
-    // Use the stored prev_value as the context for training the prediction table
     uint64_t prev_val = fcm_ctx[cidx].prev_value;
     uint64_t pidx = fcm_pred_idx_hash(pc, prev_val, fcm_pred_index);
     uint64_t ptag = fcm_pred_tag_hash(pc, prev_val, fcm_pred_index, fcm_pred_tag);
 
     if (fcm_pred[pidx].valid &&
         (fcm_pred_tag == 0 || fcm_pred[pidx].tag == ptag)) {
-        // Hit: update confidence based on prediction correctness
         if (fcm_pred[pidx].next_value == value) {
+            // Correct — bump confidence
             if (fcm_pred[pidx].conf < (uint8_t)fcm_conf_max) {
                 fcm_pred[pidx].conf++;
             }
         } else {
-            fcm_pred[pidx].next_value = value;
-            fcm_pred[pidx].conf = 0;
+            // Incorrect — decrement, only replace value when conf hits zero
+            if (fcm_pred[pidx].conf > 0) {
+                fcm_pred[pidx].conf--;
+            } else {
+                fcm_pred[pidx].next_value = value;
+            }
         }
     } else {
-        // Miss: install new prediction entry
         fcm_pred[pidx].valid = 1;
         fcm_pred[pidx].tag = ptag;
         fcm_pred[pidx].next_value = value;
         fcm_pred[pidx].conf = 0;
     }
 
-    // Advance context: current value becomes the "prev" for next prediction
+    // Advance context
     fcm_ctx[cidx].prev_value = value;
+}
+
+
+static inline uint64_t gshare_idx_hash_fn(uint64_t pc, uint64_t ghr, int idx_bits, int hist_bits) {
+    uint64_t masked_ghr = ghr & ((1ULL << hist_bits) - 1);
+    // Fold GHR down to idx_bits width
+    uint64_t folded = masked_ghr;
+    for (int shift = idx_bits; shift < hist_bits; shift += idx_bits) {
+        folded ^= (masked_ghr >> shift);
+    }
+    return ((pc >> 2) ^ folded) & ((1ULL << idx_bits) - 1);
+}
+
+static inline uint64_t gshare_tag_hash_fn(uint64_t pc, uint64_t ghr, int idx_bits, int tag_bits, int hist_bits) {
+    if (tag_bits == 0) return 0;
+    uint64_t masked_ghr = ghr & ((1ULL << hist_bits) - 1);
+    uint64_t fold = masked_ghr ^ (masked_ghr >> tag_bits) ^ (masked_ghr >> (2 * tag_bits));
+    return (((pc >> 2) >> idx_bits) ^ fold) & ((1ULL << tag_bits) - 1);
+}
+
+bool renamer::is_gshare_enabled() {
+    return gshare_enabled;
+}
+
+uint64_t renamer::get_committed_ghr() {
+    return committed_ghr;
+}
+
+void renamer::update_committed_ghr(bool taken) {
+    committed_ghr = ((committed_ghr << 1) | (taken ? 1 : 0))
+                    & ((1ULL << gshare_history_bits) - 1);
+}
+
+bool renamer::gshare_hit_confidence(uint64_t pc, uint64_t ghr) {
+    if (!gshare_enabled) return false;
+    uint64_t idx = gshare_idx_hash_fn(pc, ghr, gshare_idx_bits, gshare_history_bits);
+    if (!gshare_vp[idx].valid) return false;
+    if (gshare_tag_bits > 0) {
+        uint64_t tag = gshare_tag_hash_fn(pc, ghr, gshare_idx_bits, gshare_tag_bits, gshare_history_bits);
+        if (gshare_vp[idx].tag != tag) return false;
+    }
+    return (gshare_vp[idx].conf == (uint8_t)gshare_conf_max);
+}
+
+uint64_t renamer::get_gshare_prediction(uint64_t pc, uint64_t ghr) {
+    uint64_t idx = gshare_idx_hash_fn(pc, ghr, gshare_idx_bits, gshare_history_bits);
+    return gshare_vp[idx].value;
+}
+
+void renamer::train_gshare(uint64_t pc, uint64_t ghr, uint64_t value) {
+    if (!gshare_enabled) return;
+    uint64_t idx = gshare_idx_hash_fn(pc, ghr, gshare_idx_bits, gshare_history_bits);
+    uint64_t tag = gshare_tag_hash_fn(pc, ghr, gshare_idx_bits, gshare_tag_bits, gshare_history_bits);
+
+    if (gshare_vp[idx].valid && (gshare_tag_bits == 0 || gshare_vp[idx].tag == tag)) {
+        if (gshare_vp[idx].value == value) {
+            if (gshare_vp[idx].conf < (uint8_t)gshare_conf_max) {
+                gshare_vp[idx].conf++;
+            }
+        } else {
+            if (gshare_vp[idx].conf > 0) {
+                gshare_vp[idx].conf--;
+            } else {
+                gshare_vp[idx].value = value;
+            }
+        }
+    } else {
+        gshare_vp[idx].valid = 1;
+        gshare_vp[idx].tag = tag;
+        gshare_vp[idx].value = value;
+        gshare_vp[idx].conf = 0;
+    }
 }

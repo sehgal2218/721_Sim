@@ -26,6 +26,7 @@ typedef struct
 	bool branch_flag;
 	bool amo_flag;
 	bool csr_flag;
+	bool branch_predicted_taken;
 	uint64_t pc;
 	bool vp_eligible;   // VP valid
 	bool vp_no_pred;  // no orediction available
@@ -33,11 +34,20 @@ typedef struct
 	bool vp_pred_correct=1; // Prediction Correct flag
 }Active_List_struct;
 
+// gshare-VP entry
+typedef struct {
+    uint8_t  valid;
+    uint64_t tag;
+    uint64_t value;
+    uint8_t  conf;
+} gshare_vp_entry_t;
+
 typedef struct {
 	uint64_t valid;
 	uint64_t tag;
 	uint64_t conf;
 	uint64_t last_value;
+	int64_t  s1;
         int64_t stride;
         uint64_t instance;	
 } svp_struct;
@@ -45,6 +55,7 @@ typedef struct {
 
 	uint64_t pc;
 	uint64_t value;
+	uint64_t ghr_snapshot;
 
 } vpq_data_struct;
 
@@ -126,6 +137,14 @@ private:
        int               fcm_ctx_tag;
        int               fcm_conf_max;
        bool              fcm_enabled;
+
+       gshare_vp_entry_t *gshare_vp;
+       int               gshare_idx_bits;
+       int               gshare_tag_bits;
+       int               gshare_conf_max;
+       int               gshare_history_bits;
+       bool              gshare_enabled;
+       uint64_t          committed_ghr;
 
 
 	/////////////////////////////////////////////////////////////////////
@@ -297,7 +316,7 @@ public:
 	// Then, initialize the data structures based on the knowledge
 	// that the pipeline is intially empty (no in-flight instructions yet).
 	/////////////////////////////////////////////////////////////////////
-	renamer(uint64_t n_log_regs, uint64_t n_phys_regs, uint64_t n_branches, uint64_t n_active,bool vp_perf,int vpq_size,bool vp_oracle_conf,int svp_index_bits,int svp_tag_bits,int vp_confmax,int vp_eligible_intalu,int vp_eligible_fpalu,int vp_eligible_load,bool lvp_en, int lvp_index_bits, int lvp_tag_bits, int lvp_confmax,bool fcm_en,int fcm_pred_index_bits, int fcm_pred_tag_bits,int fcm_ctx_index_bits,  int fcm_ctx_tag_bits,int fcm_confmax);
+	renamer(uint64_t n_log_regs, uint64_t n_phys_regs, uint64_t n_branches, uint64_t n_active,bool vp_perf,int vpq_size,bool vp_oracle_conf,int svp_index_bits,int svp_tag_bits,int vp_confmax,int vp_eligible_intalu,int vp_eligible_fpalu,int vp_eligible_load,bool lvp_en, int lvp_index_bits, int lvp_tag_bits, int lvp_confmax,bool fcm_en,int fcm_pred_index_bits, int fcm_pred_tag_bits,int fcm_ctx_index_bits,  int fcm_ctx_tag_bits,int fcm_confmax,bool gshare_en,int gshare_idx_bits_p, int gshare_tag_bits_p,int gshare_confmax, int gshare_history_bits_p);
 
 	/////////////////////////////////////////////////////////////////////
 	// This is the destructor, used to clean up memory space and
@@ -447,6 +466,7 @@ public:
 	                       bool branch,
 	                       bool amo,
 	                       bool csr,
+			       bool branch_predicted_taken,
 	                       uint64_t PC);
 
 	/////////////////////////////////////////////////////////////////////
@@ -663,6 +683,14 @@ uint64_t fcm_pred_tag_hash(uint64_t pc, uint64_t prev_value, int idx_bits, int t
 uint64_t fcm_pred_idx_hash(uint64_t pc, uint64_t prev_value, int idx_bits);
 uint64_t fcm_ctx_tag_hash(uint64_t pc, int idx_bits, int tag_bits);
 uint64_t fcm_ctx_idx_hash(uint64_t pc, int idx_bits);
+
+bool     is_gshare_enabled();
+bool     gshare_hit_confidence(uint64_t pc, uint64_t ghr);
+uint64_t get_gshare_prediction(uint64_t pc, uint64_t ghr);
+void     train_gshare(uint64_t pc, uint64_t ghr, uint64_t value);
+void     update_committed_ghr(bool taken);
+uint64_t get_committed_ghr();
+
 };
 
 #endif // RENAMER_H

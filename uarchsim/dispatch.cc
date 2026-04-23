@@ -1,7 +1,7 @@
 #include "pipeline.h"
 #include "debug.h"
 #include "trap.h"
-
+#include "decode.h"
 
 void pipeline_t::dispatch() {
    unsigned int i;
@@ -149,7 +149,11 @@ void pipeline_t::dispatch() {
       branch_flag = IS_BRANCH(PAY.buf[index].flags);
       amo_flag = IS_AMO(PAY.buf[index].flags);
       csr_flag = IS_CSR(PAY.buf[index].flags);
-      PAY.buf[index].AL_index = REN->dispatch_inst(PAY.buf[index].C_valid ,PAY.buf[index].C_log_reg, PAY.buf[index].C_phys_reg, load_flag, store_flag, branch_flag, amo_flag, csr_flag, PAY.buf[index].pc);
+      bool branch_predicted_taken = false;
+      if (branch_flag) {
+          branch_predicted_taken = (PAY.buf[index].next_pc != INCREMENT_PC(PAY.buf[index].pc));
+      }
+      PAY.buf[index].AL_index = REN->dispatch_inst(PAY.buf[index].C_valid ,PAY.buf[index].C_log_reg, PAY.buf[index].C_phys_reg, load_flag, store_flag, branch_flag, amo_flag, csr_flag,branch_predicted_taken, PAY.buf[index].pc);
 
       REN->vp_active_list_update(PAY.buf[index].AL_index,PAY.buf[index].vp_eligible,PAY.buf[index].vp_conf,PAY.buf[index].vp_pred);
       
