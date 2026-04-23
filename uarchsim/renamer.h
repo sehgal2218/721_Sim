@@ -35,53 +35,59 @@ typedef struct
 }Active_List_struct;
 
 // gshare-VP entry
-typedef struct {
+typedef struct
+{
     uint8_t  valid;
     uint64_t tag;
     uint64_t value;
     uint8_t  conf;
 } gshare_vp_entry_t;
 
-typedef struct {
+typedef struct
+{
 	uint64_t valid;
 	uint64_t tag;
 	uint64_t conf;
 	uint64_t last_value;
 	int64_t  s1;
-        int64_t stride;
-        uint64_t instance;	
+    int64_t stride;
+    uint64_t instance;	
 } svp_struct;
-typedef struct {
 
+typedef struct
+{
 	uint64_t pc;
 	uint64_t value;
 	uint64_t ghr_snapshot;
-
 } vpq_data_struct;
 
-typedef struct {
-        vpq_data_struct *vpq_data;
+typedef struct
+{
+    vpq_data_struct *vpq_data;
 	uint64_t h;
 	uint64_t t;
 	uint64_t h_phase;
 	uint64_t t_phase;
 }vpq_struct;
 
-typedef struct {
+typedef struct
+{
     uint64_t valid;
     uint64_t tag;
     uint64_t last_value;
     uint64_t conf;
 } lvp_struct;
 
-typedef struct {
+typedef struct
+{
     uint8_t  valid;
     uint64_t tag;
     uint64_t next_value;
     uint8_t  conf;
 } fcm1_entry_t;
 
-typedef struct {
+typedef struct
+{
     uint8_t  valid;
     uint64_t tag;
     uint64_t prev_value;
@@ -106,47 +112,6 @@ typedef struct
 
 class renamer {
 private:
-
-
-	/////////////////////////////////////
-	///   Value Prediction 
-	/////////////////////////////////////
-       svp_struct *svp;
-       vpq_struct vpq;
-       int vpq_size;
-       bool vp_perfect;
-       int vp_oracle;
-       int svp_index;
-       int svp_tag;
-       int vp_conf;
-       int vp_eligible_intalu;
-       int vp_eligible_fpalu;
-       int vp_eligible_load;
-
-       lvp_struct *lvp;
-       int         lvp_index;     
-       int         lvp_tag;        
-       int         lvp_conf_max;   
-       bool        lvp_enabled;
-
-       fcm1_entry_t     *fcm_pred;
-       fcm1_ctx_entry_t *fcm_ctx;
-       int               fcm_pred_index;
-       int               fcm_pred_tag;
-       int               fcm_ctx_index;
-       int               fcm_ctx_tag;
-       int               fcm_conf_max;
-       bool              fcm_enabled;
-
-       gshare_vp_entry_t *gshare_vp;
-       int               gshare_idx_bits;
-       int               gshare_tag_bits;
-       int               gshare_conf_max;
-       int               gshare_history_bits;
-       bool              gshare_enabled;
-       uint64_t          committed_ghr;
-
-
 	/////////////////////////////////////////////////////////////////////
 	// Put private class variables here.
 	/////////////////////////////////////////////////////////////////////
@@ -285,8 +250,48 @@ private:
 	// e.g., a generic function to copy state from one map to another.
 	/////////////////////////////////////////////////////////////////////
 
-public:
+	//////////////   Value Prediction 
 
+    svp_struct *svp;
+	int svp_index;
+    int svp_tag;
+
+    vpq_struct vpq;
+    int vpq_size;
+    bool vp_perfect;
+    int vp_oracle;
+    int vp_conf;
+    int vp_eligible_intalu;
+    int vp_eligible_fpalu;
+    int vp_eligible_load;
+
+	////////// Last Value Prediciton
+    lvp_struct *lvp;
+    int lvp_index;     
+    int lvp_tag;        
+    int lvp_conf_max;   
+    bool lvp_enabled;
+
+	//////////////// Finite Context Prediction
+    fcm1_entry_t *fcm_pred;
+    fcm1_ctx_entry_t *fcm_ctx;
+    int fcm_pred_index;
+    int fcm_pred_tag;
+    int fcm_ctx_index;
+    int fcm_ctx_tag;
+    int fcm_conf_max;
+    bool fcm_enabled;
+
+	/////////////// Gshare for branch dependency in Value Prediction
+    gshare_vp_entry_t *gshare_vp;
+    int gshare_idx_bits;
+    int gshare_tag_bits;
+    int gshare_conf_max;
+    int gshare_history_bits;
+    bool gshare_enabled;
+    uint64_t committed_ghr;
+
+public:
     uint64_t vp_eligible_count = 0;      // vpmeas_eligible
     uint64_t vp_n_eligible_count = 0;    // vpmeas_ineligible
     uint64_t vp_miss = 0;                // vpmeas_miss
@@ -594,8 +599,7 @@ public:
 	// * csr flag (whether or not instr. is a system instruction)
 	// * program counter of the instruction
 	/////////////////////////////////////////////////////////////////////
-	bool precommit(bool &completed, bool &exception, bool &load_viol, bool &br_misp, bool &val_misp,
-	               bool &load, bool &store, bool &branch, bool &amo, bool &csr, uint64_t &PC);
+	bool precommit(bool &completed, bool &exception, bool &load_viol, bool &br_misp, bool &val_misp, bool &load, bool &store, bool &branch, bool &amo, bool &csr, uint64_t &PC);
 
 	/////////////////////////////////////////////////////////////////////
 	// This function commits the instruction at the head of the Active List.
@@ -651,46 +655,45 @@ public:
 	// Value Prediction Functions
 	// //////////////////////////////////////////////////////////////////
 	
-bool stall_vpq(uint64_t bundle_vp_eligible);
-bool check_svp (uint64_t pc);
-uint64_t get_svp_index(uint64_t pc);
-uint64_t vpq_update(uint64_t pc);
-bool is_vp_perfect();
-bool is_vp_oracle();
-uint64_t get_prediction_value(uint64_t index);
-void vp_active_list_update(uint64_t AL_index,int vp_eligible, int vp_conf,int vp_pred);
-int get_vp_conf();
-void set_vpq_value(uint64_t index,uint64_t value);
-void increment_svp_instance(uint64_t pc);
-int get_svp_conf(uint64_t index);
-void dump_init_stats(FILE *fp);
-void dump_stats(FILE *fp);
-void vp_active_list_pred_no_correct(uint64_t AL_index);
-
-bool     check_lvp(uint64_t pc);
-uint64_t get_lvp_index(uint64_t pc);
-uint64_t get_lvp_prediction(uint64_t pc);
-bool     lvp_hit_confidence(uint64_t pc);
-void     train_lvp(uint64_t pc, uint64_t value);
-bool     is_lvp_enabled();
-
-bool     is_fcm_enabled();
-bool     check_fcm(uint64_t pc);
-uint64_t get_fcm_prediction(uint64_t pc);
-bool     fcm_hit_confidence(uint64_t pc);
-void     train_fcm(uint64_t pc, uint64_t value);
-uint64_t fcm_pred_tag_hash(uint64_t pc, uint64_t prev_value, int idx_bits, int tag_bits);
-uint64_t fcm_pred_idx_hash(uint64_t pc, uint64_t prev_value, int idx_bits);
-uint64_t fcm_ctx_tag_hash(uint64_t pc, int idx_bits, int tag_bits);
-uint64_t fcm_ctx_idx_hash(uint64_t pc, int idx_bits);
-
-bool     is_gshare_enabled();
-bool     gshare_hit_confidence(uint64_t pc, uint64_t ghr);
-uint64_t get_gshare_prediction(uint64_t pc, uint64_t ghr);
-void     train_gshare(uint64_t pc, uint64_t ghr, uint64_t value);
-void     update_committed_ghr(bool taken);
-uint64_t get_committed_ghr();
-
+	bool stall_vpq(uint64_t bundle_vp_eligible);
+	bool check_svp (uint64_t pc);
+	uint64_t get_svp_index(uint64_t pc);
+	uint64_t vpq_update(uint64_t pc);
+	bool is_vp_perfect();
+	bool is_vp_oracle();
+	uint64_t get_prediction_value(uint64_t index);
+	void vp_active_list_update(uint64_t AL_index,int vp_eligible, int vp_conf,int vp_pred);
+	int get_vp_conf();
+	void set_vpq_value(uint64_t index,uint64_t value);
+	void increment_svp_instance(uint64_t pc);
+	int get_svp_conf(uint64_t index);
+	void dump_init_stats(FILE *fp);
+	void dump_stats(FILE *fp);
+	void vp_active_list_pred_no_correct(uint64_t AL_index);
+		
+	bool check_lvp(uint64_t pc);
+	uint64_t get_lvp_index(uint64_t pc);
+	uint64_t get_lvp_prediction(uint64_t pc);
+	bool lvp_hit_confidence(uint64_t pc);
+	void train_lvp(uint64_t pc, uint64_t value);
+	bool is_lvp_enabled();
+		
+	bool is_fcm_enabled();
+	bool check_fcm(uint64_t pc);
+	uint64_t get_fcm_prediction(uint64_t pc);
+	bool fcm_hit_confidence(uint64_t pc);
+	void train_fcm(uint64_t pc, uint64_t value);
+	uint64_t fcm_pred_tag_hash(uint64_t pc, uint64_t prev_value, int idx_bits, int tag_bits);
+	uint64_t fcm_pred_idx_hash(uint64_t pc, uint64_t prev_value, int idx_bits);
+	uint64_t fcm_ctx_tag_hash(uint64_t pc, int idx_bits, int tag_bits);
+	uint64_t fcm_ctx_idx_hash(uint64_t pc, int idx_bits);
+		
+	bool is_gshare_enabled();
+	bool gshare_hit_confidence(uint64_t pc, uint64_t ghr);
+	uint64_t get_gshare_prediction(uint64_t pc, uint64_t ghr);
+	void train_gshare(uint64_t pc, uint64_t ghr, uint64_t value);
+	void update_committed_ghr(bool taken);
+	uint64_t get_committed_ghr();
 };
 
 #endif // RENAMER_H
