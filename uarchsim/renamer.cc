@@ -4,66 +4,12 @@
 #include <cmath>  
 ////////////////////////////////// CONSTRUCTOR ////////////////////////////////
 
-renamer::renamer(uint64_t n_log_regs, uint64_t n_phys_regs, uint64_t n_branches, uint64_t n_active,bool vp_perf,int vpq_size,bool vp_oracle_conf,int svp_index_bits,int svp_tag_bits,int vp_confmax,int vp_eligible_intalu,int vp_eligible_fpalu,int vp_eligible_load,bool lvp_en, int lvp_index_bits, int lvp_tag_bits, int lvp_confmax,bool fcm_en,int fcm_pred_index_bits, int fcm_pred_tag_bits,int fcm_ctx_index_bits,  int fcm_ctx_tag_bits,int fcm_confmax,bool gshare_en,int gshare_idx_bits_p, int gshare_tag_bits_p,int gshare_confmax, int gshare_history_bits_p)
+renamer::renamer(uint64_t n_log_regs, uint64_t n_phys_regs, uint64_t n_branches, uint64_t n_active,bool vp_perf,int vpq_size,bool vp_oracle_conf,int svp_index_bits,int svp_tag_bits,int vp_confmax,int vp_eligible_intalu,int vp_eligible_fpalu,int vp_eligible_load,bool gshare_en,int gshare_idx_bits_p, int gshare_tag_bits_p,int gshare_confmax, int gshare_history_bits_p)
 {
     logical_reg_count = n_log_regs;
     physical_reg_count = n_phys_regs;
     unresolved_branch_count = n_branches;
     active_list_size = n_active;
-
-    // LVP initialization
-    lvp_enabled = lvp_en;
-    lvp_index   = lvp_index_bits;
-    lvp_tag     = lvp_tag_bits;
-    lvp_conf_max = lvp_confmax;
-    
-    if (lvp_enabled)
-    {
-        lvp = new lvp_struct[1 << lvp_index_bits];
-        for (int i = 0; i < (1 << lvp_index_bits); i++)
-        {
-            lvp[i].valid = 0;
-            lvp[i].tag = 0;
-            lvp[i].last_value = 0;
-            lvp[i].conf = 0;
-        }
-    }  
-    else
-    {
-        lvp = nullptr;
-    }
-
-    fcm_enabled     = fcm_en;
-    fcm_pred_index  = fcm_pred_index_bits;
-    fcm_pred_tag    = fcm_pred_tag_bits;
-    fcm_ctx_index   = fcm_ctx_index_bits;
-    fcm_ctx_tag     = fcm_ctx_tag_bits;
-    fcm_conf_max    = fcm_confmax;
-    
-    if (fcm_enabled)
-    {
-        fcm_pred = new fcm1_entry_t[1 << fcm_pred_index_bits];
-        for (int i = 0; i < (1 << fcm_pred_index_bits); i++)
-        {
-            fcm_pred[i].valid = 0;
-            fcm_pred[i].tag = 0;
-            fcm_pred[i].next_value = 0;
-            fcm_pred[i].conf = 0;
-        }
-    
-        fcm_ctx = new fcm1_ctx_entry_t[1 << fcm_ctx_index_bits];
-        for (int i = 0; i < (1 << fcm_ctx_index_bits); i++)
-        {
-            fcm_ctx[i].valid = 0;
-            fcm_ctx[i].tag = 0;
-            fcm_ctx[i].prev_value = 0;
-        }
-    }
-    else
-    {
-        fcm_pred = nullptr;
-        fcm_ctx  = nullptr;
-    }
 
     // gshare-VP initialization
     gshare_enabled       = gshare_en;
@@ -541,11 +487,7 @@ void renamer::commit()
     }
     if (active_list.at[index].vp_eligible && !vp_perfect)
     {
-        int vpq_index = vpq.h;
-        bool is_load = active_list.at[index].load_flag && !active_list.at[index].amo_flag;
-        bool is_alu    = !active_list.at[index].load_flag && !active_list.at[index].store_flag && !active_list.at[index].branch_flag && !active_list.at[index].amo_flag && !active_list.at[index].csr_flag;
-        if (is_alu || is_load)
-        {
+            int vpq_index = vpq.h;
             uint64_t s_index = (active_list.at[index].pc >> 2) & ((1ULL << svp_index) - 1); 
             uint64_t s_tag = (active_list.at[index].pc >> (svp_index + 2)) & ((1ULL << svp_tag) - 1); 
 
@@ -592,21 +534,11 @@ void renamer::commit()
 		        }
 		        svp[s_index].instance=svp_instance;
             }
-        }
         vpq.h++;
         if(vpq.h == vpq_size)
         {
             vpq.h = 0;
             vpq.h_phase = !vpq.h_phase;
-        }
-        if (lvp_enabled)
-        {
-            train_lvp(active_list.at[index].pc, vpq.vpq_data[vpq_index].value);
-        }
-
-        if (fcm_enabled)
-        {
-            train_fcm(active_list.at[index].pc, vpq.vpq_data[vpq_index].value);
         }
         if (gshare_enabled)
         {
@@ -889,213 +821,7 @@ void renamer::dump_init_stats(FILE *fp){
 }
 
 
-bool renamer::is_lvp_enabled()
-{
-    return lvp_enabled;
-}
-
-uint64_t renamer::get_lvp_index(uint64_t pc)
-{
-    return (pc >> 2) & ((1ULL << lvp_index) - 1);
-}
-
-bool renamer::check_lvp(uint64_t pc)
-{
-    if (!lvp_enabled) return false;
-
-    uint64_t idx = get_lvp_index(pc);
-    if (!lvp[idx].valid) return false;
-
-    if (lvp_tag > 0)
-    {
-        uint64_t tag = (pc >> (lvp_index + 2)) & ((1ULL << lvp_tag) - 1);
-        if (lvp[idx].tag != tag) return false;
-    }
-    return true;
-}
-
-uint64_t renamer::get_lvp_prediction(uint64_t pc)
-{
-    uint64_t idx = get_lvp_index(pc);
-    return lvp[idx].last_value;
-}
-
-bool renamer::lvp_hit_confidence(uint64_t pc)
-{
-    if (!check_lvp(pc)) return false;
-    uint64_t idx = get_lvp_index(pc);
-    return (lvp[idx].conf == (uint64_t)lvp_conf_max);
-}
-
-void renamer::train_lvp(uint64_t pc, uint64_t value)
-{
-    if (!lvp_enabled) return;
-
-    uint64_t idx = get_lvp_index(pc);
-    uint64_t tag = (lvp_tag > 0) ? ((pc >> (lvp_index + 2)) & ((1ULL << lvp_tag) - 1)) : 0;
-
-    if (lvp[idx].valid && (lvp_tag == 0 || lvp[idx].tag == tag))
-    {
-        if (lvp[idx].last_value == value)
-        {
-            if (lvp[idx].conf < (uint64_t)lvp_conf_max)
-            {
-                lvp[idx].conf++;
-            }
-        }
-        else
-        {
-            if (lvp[idx].conf > 0)
-            {
-                lvp[idx].conf--;
-            }
-            else
-            {
-                lvp[idx].last_value = value;
-            }
-        }
-    }
-    else
-    {
-        lvp[idx].valid = 1;
-        lvp[idx].tag = tag;
-        lvp[idx].last_value = value;
-        lvp[idx].conf = 0;
-    }
-}
-/////////////////////////////////////////////////////////////////////////////
-uint64_t renamer::fcm_ctx_idx_hash(uint64_t pc, int idx_bits)
-{
-    return (pc >> 2) & ((1ULL << idx_bits) - 1);
-}
-
-// Context table tag: upper PC bits
-uint64_t renamer::fcm_ctx_tag_hash(uint64_t pc, int idx_bits, int tag_bits)
-{
-    if (tag_bits == 0) return 0;
-    return (pc >> (idx_bits + 2)) & ((1ULL << tag_bits) - 1);
-}
-
-// Prediction table index: hash of PC and prev_value
-uint64_t renamer::fcm_pred_idx_hash(uint64_t pc, uint64_t prev_value, int idx_bits)
-{
-    uint64_t pc_bits = (pc >> 2);
-    uint64_t val_fold = prev_value ^ (prev_value >> 16) ^ (prev_value >> 32) ^ (prev_value >> 48);
-    return (pc_bits ^ val_fold) & ((1ULL << idx_bits) - 1);
-}
-
-// Prediction table tag: different fold to decorrelate from index
-uint64_t renamer::fcm_pred_tag_hash(uint64_t pc, uint64_t prev_value, int idx_bits, int tag_bits)
-{
-    if (tag_bits == 0) return 0;
-    uint64_t pc_shift = (pc >> (idx_bits + 2));
-    uint64_t val_fold = prev_value ^ (prev_value >> tag_bits) ^ (prev_value >> (2 * tag_bits));
-    return (pc_shift ^ val_fold) & ((1ULL << tag_bits) - 1);
-}
-
-bool renamer::is_fcm_enabled()
-{
-    return fcm_enabled;
-}
-
-bool renamer::check_fcm(uint64_t pc)
-{
-    if (!fcm_enabled) return false;
-
-    uint64_t cidx = fcm_ctx_idx_hash(pc, fcm_ctx_index);
-    if (!fcm_ctx[cidx].valid) return false;
-    if (fcm_ctx_tag > 0)
-    {
-        uint64_t ctag = fcm_ctx_tag_hash(pc, fcm_ctx_index, fcm_ctx_tag);
-        if (fcm_ctx[cidx].tag != ctag) return false;
-    }
-
-    uint64_t prev_val = fcm_ctx[cidx].prev_value;
-    uint64_t pidx = fcm_pred_idx_hash(pc, prev_val, fcm_pred_index);
-
-    if (!fcm_pred[pidx].valid) return false;
-    if (fcm_pred_tag > 0)
-    {
-        uint64_t ptag = fcm_pred_tag_hash(pc, prev_val, fcm_pred_index, fcm_pred_tag);
-        if (fcm_pred[pidx].tag != ptag) return false;
-    }
-    return true;
-}
-
-uint64_t renamer::get_fcm_prediction(uint64_t pc)
-{
-    uint64_t cidx = fcm_ctx_idx_hash(pc, fcm_ctx_index);
-    uint64_t prev_val = fcm_ctx[cidx].prev_value;
-    uint64_t pidx = fcm_pred_idx_hash(pc, prev_val, fcm_pred_index);
-    return fcm_pred[pidx].next_value;
-}
-
-bool renamer::fcm_hit_confidence(uint64_t pc)
-{
-    if (!check_fcm(pc)) return false;
-    uint64_t cidx = fcm_ctx_idx_hash(pc, fcm_ctx_index);
-    uint64_t prev_val = fcm_ctx[cidx].prev_value;
-    uint64_t pidx = fcm_pred_idx_hash(pc, prev_val, fcm_pred_index);
-    return (fcm_pred[pidx].conf == (uint8_t)fcm_conf_max);
-}
-
-void renamer::train_fcm(uint64_t pc, uint64_t value)
-{
-    if (!fcm_enabled) return;
-
-    uint64_t cidx = fcm_ctx_idx_hash(pc, fcm_ctx_index);
-    uint64_t ctag = fcm_ctx_tag_hash(pc, fcm_ctx_index, fcm_ctx_tag);
-
-    bool has_ctx = fcm_ctx[cidx].valid && (fcm_ctx_tag == 0 || fcm_ctx[cidx].tag == ctag);
-
-    if (!has_ctx)
-    {
-        fcm_ctx[cidx].valid = 1;
-        fcm_ctx[cidx].tag = ctag;
-        fcm_ctx[cidx].prev_value = value;
-        return;
-    }
-
-    uint64_t prev_val = fcm_ctx[cidx].prev_value;
-    uint64_t pidx = fcm_pred_idx_hash(pc, prev_val, fcm_pred_index);
-    uint64_t ptag = fcm_pred_tag_hash(pc, prev_val, fcm_pred_index, fcm_pred_tag);
-
-    if (fcm_pred[pidx].valid && (fcm_pred_tag == 0 || fcm_pred[pidx].tag == ptag))
-    {
-        if (fcm_pred[pidx].next_value == value)
-        {
-            // Correct — bump confidence
-            if (fcm_pred[pidx].conf < (uint8_t)fcm_conf_max) {
-                fcm_pred[pidx].conf++;
-            }
-        }
-        else
-        {
-            // Incorrect — decrement, only replace value when conf hits zero
-            if (fcm_pred[pidx].conf > 0)
-            {
-                fcm_pred[pidx].conf--;
-            }
-            else
-            {
-                fcm_pred[pidx].next_value = value;
-            }
-        }
-    } 
-    else
-    {
-        fcm_pred[pidx].valid = 1;
-        fcm_pred[pidx].tag = ptag;
-        fcm_pred[pidx].next_value = value;
-        fcm_pred[pidx].conf = 0;
-    }
-
-    // Advance context
-    fcm_ctx[cidx].prev_value = value;
-}
-
-
-static inline uint64_t gshare_idx_hash_fn(uint64_t pc, uint64_t ghr, int idx_bits, int hist_bits)
+uint64_t renamer::gshare_idx_hash_fn(uint64_t pc, uint64_t ghr, int idx_bits, int hist_bits)
 {
     uint64_t masked_ghr = ghr & ((1ULL << hist_bits) - 1);
     // Fold GHR down to idx_bits width
@@ -1107,7 +833,7 @@ static inline uint64_t gshare_idx_hash_fn(uint64_t pc, uint64_t ghr, int idx_bit
     return ((pc >> 2) ^ folded) & ((1ULL << idx_bits) - 1);
 }
 
-static inline uint64_t gshare_tag_hash_fn(uint64_t pc, uint64_t ghr, int idx_bits, int tag_bits, int hist_bits)
+uint64_t renamer::gshare_tag_hash_fn(uint64_t pc, uint64_t ghr, int idx_bits, int tag_bits, int hist_bits)
 {
     if (tag_bits == 0) return 0;
     uint64_t masked_ghr = ghr & ((1ULL << hist_bits) - 1);

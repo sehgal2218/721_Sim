@@ -154,7 +154,7 @@ static void set_vp_flags(const char *config) {
   
   bool oracle_conf; 
   
-  if (sscanf(config, "%u,%bool,%u,%u,%u",&VPQ_SIZE,&oracle_conf,&SVP_INDEX_BITS,&SVP_TAG_BITS,&SVP_CONF_MAX) != 5){
+  if (sscanf(config, "%u,%u,%u,%u,%u",&VPQ_SIZE,&oracle_conf,&SVP_INDEX_BITS,&SVP_TAG_BITS,&SVP_CONF_MAX) != 5){
       fprintf(stderr, "Incorrect usage of --vp-svp:\n");
       fprintf(stderr,"--vp-svp=<VPQsize>,<oracleconf>,<# index bits>,<# tag bits>,<confmax>\n");
    }  
@@ -162,6 +162,23 @@ static void set_vp_flags(const char *config) {
   if (oracle_conf){
   
   ORACLE_CONF=true;
+  
+  }
+
+}
+
+static void set_vp_gshare_flags(const char *config) {
+  //unsigned int vpq_size, tag_bits, index_bits,conf_max;
+  
+  bool gshare_en;	
+  if (sscanf(config, "%u,%u,%u,%u,%u",&gshare_en,&GSHARE_INDEX_BITS,&GSHARE_TAG_BITS,&GSHARE_CONF_MAX,&GSHARE_HISTORY_BITS) != 5){
+      fprintf(stderr, "Incorrect usage of --vp-gshare:\n");
+      fprintf(stderr,"--vp-gshare=<gshare_en>,<# index bits>,<# tag bits>,<confmax>,<history length>\n");
+   }  
+    
+if (gshare_en){
+  
+  VP_GSHARE_EN=true;
   
   }
 
@@ -486,6 +503,7 @@ int main(int argc, char **argv) {
    parser.option(0, "vp-svp", 1, [&](const char *s) { set_vp_flags(s); });
    parser.option(0, "vp-eligible", 1, [&](const char *s) { set_vp_eligible_flags(s); });
    parser.option(0, "vp-perf", 1, [&](const char *s) { PERFECT_VALUE_PRED = atoi(s); });
+   parser.option(0, "vp-gshare", 1, [&](const char *s) { set_vp_gshare_flags(s); });
    parser.option(0, "store-set", 1, [&](const char *s) { set_store_set_flags(s); });
    parser.option(0, "splitstores", 1, [&](const char *s) { SPLIT_STORES = (atoi(s) ? true : false); });
    parser.option(0, "fw", 1, [&](const char *s) { FETCH_WIDTH = atoi(s); });

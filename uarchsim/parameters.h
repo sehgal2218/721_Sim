@@ -14,6 +14,14 @@ extern unsigned int VP_ELIGIBLE_INTALU;
 extern unsigned int VP_ELIGIBLE_FPALU;
 extern unsigned int VP_ELIGIBLE_LOAD;
 
+extern bool VP_GSHARE_EN;
+extern unsigned int GSHARE_INDEX_BITS;
+extern unsigned int GSHARE_TAG_BITS;
+extern unsigned int GSHARE_CONF_MAX;
+extern unsigned int GSHARE_HISTORY_BITS;
+
+
+
 // Pipe control
 extern unsigned int PIPE_QUEUE_SIZE;
 

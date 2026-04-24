@@ -240,12 +240,8 @@ void pipeline_t::rename2() {
 	
 	}else{
 	
-	   bool is_load = IS_LOAD(PAY.buf[index].flags) && !IS_AMO(PAY.buf[index].flags);     
-           bool is_int_alu = IS_INTALU(PAY.buf[index].flags);
-           bool is_fp_alu = IS_FPALU(PAY.buf[index].flags);
 	   PAY.buf[index].vpq_index = REN->vpq_update(PAY.buf[index].pc);
-           if(is_int_alu || is_load || is_fp_alu){
-	     if (REN->check_svp(PAY.buf[index].pc) && 0){
+	     if (REN->check_svp(PAY.buf[index].pc)){
 		      PAY.buf[index].vp_pred=1;
 		REN->increment_svp_instance(PAY.buf[index].pc);
 		uint64_t s_index= REN->get_svp_index(PAY.buf[index].pc);
@@ -254,24 +250,8 @@ void pipeline_t::rename2() {
 		    PAY.buf[index].vp_conf=REN->get_vp_conf();
                     PAY.buf[index].Predicted_value=pred_value;
 		}else {
-                   if (REN->is_lvp_enabled() && REN->lvp_hit_confidence(PAY.buf[index].pc)) {
-                       PAY.buf[index].vp_conf = REN->get_vp_conf();
-                       PAY.buf[index].Predicted_value = REN->get_lvp_prediction(PAY.buf[index].pc);
-                   }
-		 //  else if (REN->is_fcm_enabled() && REN->fcm_hit_confidence(PAY.buf[index].pc)) {
-                 //      PAY.buf[index].vp_pred = 1;
-                 //      PAY.buf[index].vp_conf = REN->get_vp_conf();
-                 //      PAY.buf[index].Predicted_value = REN->get_fcm_prediction(PAY.buf[index].pc);
-             //      uint64_t ghr = REN->get_committed_ghr();
-
-             // if (REN->is_gshare_enabled() && REN->gshare_hit_confidence(PAY.buf[index].pc, ghr)) {
-             //     PAY.buf[index].vp_pred = 1;
-             //     PAY.buf[index].vp_conf = REN->get_vp_conf();
-             //     PAY.buf[index].Predicted_value = REN->get_gshare_prediction(PAY.buf[index].pc, ghr);
-              //} else {
                        PAY.buf[index].vp_conf = 0;
                        PAY.buf[index].Predicted_value = pred_value;
-                //   }
               }
 	     }else{
 	      uint64_t ghr = REN->get_committed_ghr();
@@ -280,58 +260,13 @@ void pipeline_t::rename2() {
                   PAY.buf[index].vp_pred = 1;
                   PAY.buf[index].vp_conf = REN->get_vp_conf();
                   PAY.buf[index].Predicted_value = REN->get_gshare_prediction(PAY.buf[index].pc, ghr);
-              }	     
-              else if (REN->is_fcm_enabled() && REN->fcm_hit_confidence(PAY.buf[index].pc)) {
-                       PAY.buf[index].vp_pred = 1;
-                       PAY.buf[index].vp_conf = REN->get_vp_conf();
-                       PAY.buf[index].Predicted_value = REN->get_fcm_prediction(PAY.buf[index].pc);
-                   }		     
-	      else if (REN->is_lvp_enabled() && REN->lvp_hit_confidence(PAY.buf[index].pc)) {
-                PAY.buf[index].vp_pred = 1;
-                PAY.buf[index].vp_conf = REN->get_vp_conf();
-                PAY.buf[index].Predicted_value = REN->get_lvp_prediction(PAY.buf[index].pc);
             }else {
                 PAY.buf[index].vp_pred = 0;
                 PAY.buf[index].vp_conf = 0;
                 PAY.buf[index].Predicted_value = 0;
               }
 	    }
-	   }
-	 //  else if (is_load){
-	 //  
-	 //      if (REN->is_fcm_enabled() && REN->fcm_hit_confidence(PAY.buf[index].pc)) {
-         //       PAY.buf[index].vp_pred = 1;
-         //       PAY.buf[index].vp_conf = REN->get_vp_conf();
-         //       PAY.buf[index].Predicted_value = REN->get_fcm_prediction(PAY.buf[index].pc);
-         //     }else if (REN->is_lvp_enabled() && REN->lvp_hit_confidence(PAY.buf[index].pc)) {
-         //       PAY.buf[index].vp_pred = 1;
-         //       PAY.buf[index].vp_conf = REN->get_vp_conf();
-         //       PAY.buf[index].Predicted_value = REN->get_lvp_prediction(PAY.buf[index].pc);
-         //   }else {
-         //       PAY.buf[index].vp_pred = 0;
-         //       PAY.buf[index].vp_conf = 0;
-         //       PAY.buf[index].Predicted_value = 0;
-         //     }
-	 //  
-	 //  
-	 //  }
-	  // else if(is_fp_alu){
-	  // if (REN->is_lvp_enabled() && REN->lvp_hit_confidence(PAY.buf[index].pc)) {
-          //      PAY.buf[index].vp_pred = 1;
-          //      PAY.buf[index].vp_conf = REN->get_vp_conf();
-          //      PAY.buf[index].Predicted_value = REN->get_lvp_prediction(PAY.buf[index].pc);
-          //  }else {
-          //      PAY.buf[index].vp_pred = 0;
-          //      PAY.buf[index].vp_conf = 0;
-          //      PAY.buf[index].Predicted_value = 0;
-          //    }
-	  // 
-	  // }
-	   else {
-                PAY.buf[index].vp_pred = 0;
-                PAY.buf[index].vp_conf = 0;
-                PAY.buf[index].Predicted_value = 0;
-              }
+	   
 	}
    }else{
 	    PAY.buf[index].vp_pred=0;

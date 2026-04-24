@@ -7,14 +7,20 @@ uint32_t PIPE_QUEUE_SIZE = 8192;
 
 // Value Prediction Control
 bool PERFECT_VALUE_PRED=false;
-unsigned int VPQ_SIZE=64;
+unsigned int VPQ_SIZE=300;
 bool ORACLE_CONF=false;
-unsigned int SVP_INDEX_BITS=7;
-unsigned int SVP_TAG_BITS=55;
-unsigned int SVP_CONF_MAX=3;
+unsigned int SVP_INDEX_BITS=10;
+unsigned int SVP_TAG_BITS=10;
+unsigned int SVP_CONF_MAX=31;
 unsigned int VP_ELIGIBLE_INTALU=1;
-unsigned int VP_ELIGIBLE_FPALU=1;
+unsigned int VP_ELIGIBLE_FPALU=0;
 unsigned int VP_ELIGIBLE_LOAD=1;
+
+bool VP_GSHARE_EN=false;
+unsigned int GSHARE_INDEX_BITS=10;
+unsigned int GSHARE_TAG_BITS=10;
+unsigned int GSHARE_CONF_MAX=8;
+unsigned int GSHARE_HISTORY_BITS=8;
 
 // Oracle controls.
 bool PERFECT_BRANCH_PRED = false;
