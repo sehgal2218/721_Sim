@@ -58,7 +58,6 @@ renamer::renamer(uint64_t n_log_regs, uint64_t n_phys_regs, uint64_t n_branches,
     	svp[i].conf=0;
 	    svp[i].last_value=0;
 	    svp[i].stride=0;
-	    svp[i].s1=0;
 	    svp[i].instance=0;
     }
     for(int i=0;i<vpq_size;i++)
@@ -511,8 +510,7 @@ void renamer::commit()
                 int svp_instance=0;
 		        svp[s_index].valid=1;
 		        svp[s_index].conf=0;
-		        svp[s_index].stride=0;                        
-                svp[s_index].s1=0; 
+		        svp[s_index].stride=vpq.vpq_data[vpq_index].value;                        
 		        svp[s_index].last_value=vpq.vpq_data[vpq_index].value;
 		        svp[s_index].tag = s_tag;
 		        int temph = vpq.h;

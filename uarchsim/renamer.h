@@ -49,7 +49,6 @@ typedef struct
 	uint64_t tag;
 	uint64_t conf;
 	uint64_t last_value;
-	int64_t  s1;
     int64_t stride;
     uint64_t instance;	
 } svp_struct;
