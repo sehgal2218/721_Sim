@@ -510,7 +510,8 @@ void renamer::commit()
                 int svp_instance=0;
 		        svp[s_index].valid=1;
 		        svp[s_index].conf=0;
-		        svp[s_index].stride=vpq.vpq_data[vpq_index].value;                        
+		        if (gshare_enabled) svp[s_index].stride=0;  
+                        else svp[s_index].stride=vpq.vpq_data[vpq_index].value;		
 		        svp[s_index].last_value=vpq.vpq_data[vpq_index].value;
 		        svp[s_index].tag = s_tag;
 		        int temph = vpq.h;
