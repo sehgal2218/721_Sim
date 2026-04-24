@@ -41,7 +41,7 @@ typedef struct
     uint64_t tag;
     uint64_t value;
     uint8_t  conf;
-} gshare_vp_entry_t;
+} gshare_vp_struct;
 
 typedef struct
 {
@@ -58,7 +58,7 @@ typedef struct
 {
 	uint64_t pc;
 	uint64_t value;
-	uint64_t ghr_snapshot;
+	uint64_t ghr;
 } vpq_data_struct;
 
 typedef struct
@@ -244,13 +244,13 @@ private:
     int vp_eligible_load;
 
     /////////////// Gshare for branch dependency in Value Prediction
-    gshare_vp_entry_t *gshare_vp;
-    int gshare_idx_bits;
-    int gshare_tag_bits;
+    gshare_vp_struct *gshare_vp;
+    int gshare_index;
+    int gshare_tag;
     int gshare_conf_max;
-    int gshare_history_bits;
+    int gshare_history;
     bool gshare_enabled;
-    uint64_t committed_ghr;
+    uint64_t c_ghr;
 
 public:
     uint64_t vp_eligible_count = 0;      // vpmeas_eligible
@@ -282,7 +282,7 @@ public:
 	// Then, initialize the data structures based on the knowledge
 	// that the pipeline is intially empty (no in-flight instructions yet).
 	/////////////////////////////////////////////////////////////////////
-	renamer(uint64_t n_log_regs, uint64_t n_phys_regs, uint64_t n_branches, uint64_t n_active,bool vp_perf,int vpq_size,bool vp_oracle_conf,int svp_index_bits,int svp_tag_bits,int vp_confmax,int vp_eligible_intalu,int vp_eligible_fpalu,int vp_eligible_load,bool gshare_en,int gshare_idx_bits_p, int gshare_tag_bits_p,int gshare_confmax, int gshare_history_bits_p);
+	renamer(uint64_t n_log_regs, uint64_t n_phys_regs, uint64_t n_branches, uint64_t n_active,bool vp_perf,int vpq_size,bool vp_oracle_conf,int svp_index_bits,int svp_tag_bits,int vp_confmax,int vp_eligible_intalu,int vp_eligible_fpalu,int vp_eligible_load,bool gshare_en,int gshare_index, int gshare_tag,int gshare_confmax, int gshare_history);
 
 	/////////////////////////////////////////////////////////////////////
 	// This is the destructor, used to clean up memory space and
@@ -636,10 +636,10 @@ public:
 	bool gshare_hit_confidence(uint64_t pc, uint64_t ghr);
 	uint64_t get_gshare_prediction(uint64_t pc, uint64_t ghr);
 	void train_gshare(uint64_t pc, uint64_t ghr, uint64_t value);
-	void update_committed_ghr(bool taken);
-	uint64_t get_committed_ghr();
-	uint64_t gshare_idx_hash_fn(uint64_t pc, uint64_t ghr, int idx_bits, int hist_bits);
-	uint64_t gshare_tag_hash_fn(uint64_t pc, uint64_t ghr, int idx_bits, int tag_bits, int hist_bits);
+	void update_c_ghr(bool taken);
+	uint64_t get_c_ghr();
+	uint64_t gshare_index_hash(uint64_t pc, uint64_t ghr, int index, int history);
+	uint64_t gshare_tag_hash(uint64_t pc, uint64_t ghr, int index, int tag, int history);
 	
 };
 

@@ -4,7 +4,7 @@
 #include <cmath>  
 ////////////////////////////////// CONSTRUCTOR ////////////////////////////////
 
-renamer::renamer(uint64_t n_log_regs, uint64_t n_phys_regs, uint64_t n_branches, uint64_t n_active,bool vp_perf,int vpq_size,bool vp_oracle_conf,int svp_index_bits,int svp_tag_bits,int vp_confmax,int vp_eligible_intalu,int vp_eligible_fpalu,int vp_eligible_load,bool gshare_en,int gshare_idx_bits_p, int gshare_tag_bits_p,int gshare_confmax, int gshare_history_bits_p)
+renamer::renamer(uint64_t n_log_regs, uint64_t n_phys_regs, uint64_t n_branches, uint64_t n_active,bool vp_perf,int vpq_size,bool vp_oracle_conf,int svp_index_bits,int svp_tag_bits,int vp_confmax,int vp_eligible_intalu,int vp_eligible_fpalu,int vp_eligible_load,bool gshare_en,int gshare_index, int gshare_tag,int gshare_confmax, int gshare_history)
 {
     logical_reg_count = n_log_regs;
     physical_reg_count = n_phys_regs;
@@ -13,25 +13,21 @@ renamer::renamer(uint64_t n_log_regs, uint64_t n_phys_regs, uint64_t n_branches,
 
     // gshare-VP initialization
     gshare_enabled       = gshare_en;
-    gshare_idx_bits      = gshare_idx_bits_p;
-    gshare_tag_bits      = gshare_tag_bits_p;
+    this->gshare_index      = gshare_index;
+    this->gshare_tag      = gshare_tag;
     gshare_conf_max      = gshare_confmax;
-    gshare_history_bits  = gshare_history_bits_p;
-    committed_ghr        = 0;
+    this->gshare_history = gshare_history;
+    c_ghr        = 0;
      
     if (gshare_enabled) {
-        gshare_vp = new gshare_vp_entry_t[1 << gshare_idx_bits];
-        for (int i = 0; i < (1 << gshare_idx_bits); i++)
+        gshare_vp = new gshare_vp_struct[1 << gshare_index];
+        for (int i = 0; i < (1 << gshare_index); i++)
         {
             gshare_vp[i].valid = 0;
             gshare_vp[i].tag = 0;
             gshare_vp[i].value = 0;
             gshare_vp[i].conf = 0;
         }
-    }
-    else
-    {
-        gshare_vp = nullptr;
     }
         
     ///////////////////////Value Prediction
@@ -542,13 +538,13 @@ void renamer::commit()
         }
         if (gshare_enabled)
         {
-            train_gshare(active_list.at[index].pc, vpq.vpq_data[vpq_index].ghr_snapshot, vpq.vpq_data[vpq_index].value);
+            train_gshare(active_list.at[index].pc, vpq.vpq_data[vpq_index].ghr, vpq.vpq_data[vpq_index].value);
         }
     }
     if (active_list.at[index].branch_flag && gshare_enabled)
     {
         bool actual_taken = active_list.at[index].branch_predicted_taken ^ active_list.at[index].branch_mispred_flag;
-        update_committed_ghr(actual_taken);
+        update_c_ghr(actual_taken);
     }
     active_list.head++;
     if(active_list.head == active_list.size)
@@ -667,7 +663,7 @@ uint64_t renamer::vpq_update(uint64_t pc)
 {
     uint64_t index = vpq.t;
     vpq.vpq_data[index].pc = pc;
-    vpq.vpq_data[index].ghr_snapshot = committed_ghr; 
+    vpq.vpq_data[index].ghr = c_ghr; 
     
     vpq.t++;
     if(vpq.t == vpq_size)
@@ -821,24 +817,17 @@ void renamer::dump_init_stats(FILE *fp){
 }
 
 
-uint64_t renamer::gshare_idx_hash_fn(uint64_t pc, uint64_t ghr, int idx_bits, int hist_bits)
+uint64_t renamer::gshare_index_hash(uint64_t pc, uint64_t ghr, int index, int history)
 {
-    uint64_t masked_ghr = ghr & ((1ULL << hist_bits) - 1);
-    // Fold GHR down to idx_bits width
-    uint64_t folded = masked_ghr;
-    for (int shift = idx_bits; shift < hist_bits; shift += idx_bits)
-    {
-        folded ^= (masked_ghr >> shift);
-    }
-    return ((pc >> 2) ^ folded) & ((1ULL << idx_bits) - 1);
+    uint64_t masked_ghr = ghr & ((1ULL << history) - 1);
+    return ((pc >> 2) ^ masked_ghr) & ((1ULL << index) - 1);
 }
 
-uint64_t renamer::gshare_tag_hash_fn(uint64_t pc, uint64_t ghr, int idx_bits, int tag_bits, int hist_bits)
+uint64_t renamer::gshare_tag_hash(uint64_t pc, uint64_t ghr, int index, int tag, int history)
 {
-    if (tag_bits == 0) return 0;
-    uint64_t masked_ghr = ghr & ((1ULL << hist_bits) - 1);
-    uint64_t fold = masked_ghr ^ (masked_ghr >> tag_bits) ^ (masked_ghr >> (2 * tag_bits));
-    return (((pc >> 2) >> idx_bits) ^ fold) & ((1ULL << tag_bits) - 1);
+    if (tag == 0) return 0;
+    uint64_t masked_ghr = ghr & ((1ULL << history) - 1);
+    return (((pc >> 2) >> index) ^ masked_ghr) & ((1ULL << tag) - 1);
 }
 
 bool renamer::is_gshare_enabled()
@@ -846,73 +835,73 @@ bool renamer::is_gshare_enabled()
     return gshare_enabled;
 }
 
-uint64_t renamer::get_committed_ghr()
+uint64_t renamer::get_c_ghr()
 {
-    return committed_ghr;
+    return c_ghr;
 }
 
-void renamer::update_committed_ghr(bool taken)
+void renamer::update_c_ghr(bool taken)
 {
-    committed_ghr = ((committed_ghr << 1) | (taken ? 1 : 0)) & ((1ULL << gshare_history_bits) - 1);
+    c_ghr = ((c_ghr << 1) | (taken ? 1 : 0)) & ((1ULL << gshare_history) - 1);
 }
 
 bool renamer::gshare_hit_confidence(uint64_t pc, uint64_t ghr)
 {
     if (!gshare_enabled) return false;
-    uint64_t idx = gshare_idx_hash_fn(pc, ghr, gshare_idx_bits, gshare_history_bits);
-    if (!gshare_vp[idx].valid)
+    uint64_t index = gshare_index_hash(pc, ghr, gshare_index, gshare_history);
+    if (!gshare_vp[index].valid)
     {
         return false;
     }
-    if (gshare_tag_bits > 0)
+    if (gshare_tag > 0)
     {
-        uint64_t tag = gshare_tag_hash_fn(pc, ghr, gshare_idx_bits, gshare_tag_bits, gshare_history_bits);
-        if (gshare_vp[idx].tag != tag)
+        uint64_t tag = gshare_tag_hash(pc, ghr, gshare_index, gshare_tag, gshare_history);
+        if (gshare_vp[index].tag != tag)
         {
             return false;
         }
     }
-    return (gshare_vp[idx].conf == (uint8_t)gshare_conf_max);
+    return (gshare_vp[index].conf == gshare_conf_max);
 }
 
 uint64_t renamer::get_gshare_prediction(uint64_t pc, uint64_t ghr)
 {
-    uint64_t idx = gshare_idx_hash_fn(pc, ghr, gshare_idx_bits, gshare_history_bits);
-    return gshare_vp[idx].value;
+    uint64_t index = gshare_index_hash(pc, ghr, gshare_index, gshare_history);
+    return gshare_vp[index].value;
 }
 
 void renamer::train_gshare(uint64_t pc, uint64_t ghr, uint64_t value)
 {
     if (!gshare_enabled) return;
-    uint64_t idx = gshare_idx_hash_fn(pc, ghr, gshare_idx_bits, gshare_history_bits);
-    uint64_t tag = gshare_tag_hash_fn(pc, ghr, gshare_idx_bits, gshare_tag_bits, gshare_history_bits);
+    uint64_t index = gshare_index_hash(pc, ghr, gshare_index, gshare_history);
+    uint64_t tag = gshare_tag_hash(pc, ghr, gshare_index, gshare_tag, gshare_history);
 
-    if (gshare_vp[idx].valid && (gshare_tag_bits == 0 || gshare_vp[idx].tag == tag))
+    if (gshare_vp[index].valid && (gshare_tag == 0 || gshare_vp[index].tag == tag))
     {
-        if (gshare_vp[idx].value == value)
+        if (gshare_vp[index].value == value)
         {
-            if (gshare_vp[idx].conf < (uint8_t)gshare_conf_max)
+            if (gshare_vp[index].conf < gshare_conf_max)
             {
-                gshare_vp[idx].conf++;
+                gshare_vp[index].conf++;
             }
         }
         else
         {
-            if (gshare_vp[idx].conf > 0)
+            if (gshare_vp[index].conf > 0)
             {
-                gshare_vp[idx].conf--;
+                gshare_vp[index].conf--;
             }
             else
             {
-                gshare_vp[idx].value = value;
+                gshare_vp[index].value = value;
             }
         }
     }
     else
     {
-        gshare_vp[idx].valid = 1;
-        gshare_vp[idx].tag = tag;
-        gshare_vp[idx].value = value;
-        gshare_vp[idx].conf = 0;
+        gshare_vp[index].valid = 1;
+        gshare_vp[index].tag = tag;
+        gshare_vp[index].value = value;
+        gshare_vp[index].conf = 0;
     }
 }

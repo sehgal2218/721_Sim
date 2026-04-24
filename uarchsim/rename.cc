@@ -254,7 +254,7 @@ void pipeline_t::rename2() {
                        PAY.buf[index].Predicted_value = pred_value;
               }
 	     }else{
-	      uint64_t ghr = REN->get_committed_ghr();
+	      uint64_t ghr = REN->get_c_ghr();
 
               if (REN->is_gshare_enabled() && REN->gshare_hit_confidence(PAY.buf[index].pc, ghr)) {
                   PAY.buf[index].vp_pred = 1;
